@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { Field, WrenchMark } from '../components/ui'
+import { Field, BrandLogo, IconCalendar, IconClipboard, IconMapPin, IconCoffee, IconHome, IconWrench } from '../components/ui'
 
 const GoogleIcon = () => (
-  <svg width="17" height="17" viewBox="0 0 48 48" aria-hidden="true">
+  <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
     <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3l5.7-5.7C34.3 6.1 29.4 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/>
     <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 8 3l5.7-5.7C34.3 6.1 29.4 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
     <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
@@ -31,14 +31,14 @@ export default function AuthPage() {
       if (tab === 'signin') {
         await signIn({ email, password })
       } else {
-        if (!fullName.trim()) throw new Error('Please tell us your name.')
+        if (!fullName.trim()) throw new Error('Please enter your name.')
         const { session } = await signUp({ email, password, fullName: fullName.trim(), role })
         if (!session) {
-          setNotice('Almost there — check your email for a confirmation link, then sign in.')
+          setNotice('Almost done — please check your email for a confirmation link, then sign in.')
         }
       }
     } catch (err) {
-      setError(err.message ?? 'Something went wrong — please try again.')
+      setError(err.message ?? 'Something went wrong. Please try again.')
     } finally {
       setBusy(false)
     }
@@ -56,31 +56,35 @@ export default function AuthPage() {
   return (
     <div className="auth-shell">
       <div className="auth-hero">
-        <div className="brand">
-          <div className="brand-mark" style={{ background: 'rgba(255,255,255,0.14)' }}><WrenchMark /></div>
+        <div className="hero-logo">
+          <BrandLogo height={52} />
           <div>
-            <div className="brand-name">Footscray Repair Cafe</div>
-            <div className="brand-sub">Angliss Neighbourhood House</div>
+            <div className="hl-name">Footscray Repair Cafe</div>
+            <div className="hl-sub">Angliss Neighbourhood House</div>
           </div>
         </div>
-        <h1>Fix it, don&rsquo;t bin it.</h1>
+        <h1>Don&rsquo;t throw it away — repair it together.</h1>
         <p className="lede">
-          Bring your broken things along on the second Saturday of every month, and our
-          volunteer repairers will help you get them working again — for free.
+          Footscray Repair Cafe is a free community repair service. Bring a broken household item
+          along on the second Saturday of each month, and our volunteer repairers will work with
+          you to bring it back to life.
         </p>
         <div className="facts">
-          <div className="fact"><span className="f-ic">📅</span><span>Second Saturday of the month, 11am – 1.30pm. Book by 6pm the Wednesday before.</span></div>
-          <div className="fact"><span className="f-ic">🧰</span><span>One item per person each month, so everyone gets a turn.</span></div>
-          <div className="fact"><span className="f-ic">☕</span><span>Free cuppa while you wait — repairs happen together, so you learn too.</span></div>
-          <div className="fact"><span className="f-ic">🌏</span><span>Supported by the Maribyrnong City Council Community Grants Program.</span></div>
+          <div className="fact"><IconCalendar /><span>Second Saturday of each month, 11am – 1.30pm</span></div>
+          <div className="fact"><IconClipboard /><span>Bookings close at 6pm on the Wednesday before each session</span></div>
+          <div className="fact"><IconCoffee /><span>One item per visit — enjoy a free cuppa while you wait</span></div>
+          <div className="fact"><IconMapPin /><span>Angliss Neighbourhood House, 2/11 Vipont St, Footscray</span></div>
+        </div>
+        <div className="hero-foot">
+          Supported by the Maribyrnong City Council Community Grants Program.
         </div>
       </div>
 
       <div className="auth-panel">
         <div className="auth-card">
-          <h2 style={{ fontSize: 22, marginBottom: 4 }}>{tab === 'signin' ? 'Welcome back' : 'Join the cafe'}</h2>
+          <h2 style={{ fontSize: 20, marginBottom: 4 }}>{tab === 'signin' ? 'Welcome back' : 'Create your account'}</h2>
           <p style={{ color: 'var(--ink-2)', fontSize: 13.5, marginBottom: 18 }}>
-            {tab === 'signin' ? 'Sign in to see your repairs.' : 'Create a free account to book repairs or volunteer.'}
+            {tab === 'signin' ? 'Sign in to manage your repairs.' : 'Book repairs or join the volunteer team — it only takes a minute.'}
           </p>
 
           <div className="auth-tabs" role="tablist">
@@ -97,16 +101,16 @@ export default function AuthPage() {
                 <Field label="I&rsquo;m joining as">
                   <div className="opt-cards">
                     <button type="button" className={`opt-card ${role === 'visitor' ? 'on' : ''}`} onClick={() => setRole('visitor')}>
-                      <span className="oc-icon">🏠</span>
-                      <span><span className="oc-title">Visitor</span><div className="oc-sub">I&rsquo;ve got something that needs repairing</div></span>
+                      <span className="oc-icon"><IconHome /></span>
+                      <span><span className="oc-title">Visitor</span><div className="oc-sub">I have an item that needs repairing</div></span>
                     </button>
                     <button type="button" className={`opt-card ${role === 'volunteer' ? 'on' : ''}`} onClick={() => setRole('volunteer')}>
-                      <span className="oc-icon">🔧</span>
-                      <span><span className="oc-title">Volunteer / repairer</span><div className="oc-sub">I&rsquo;m part of the repair team</div></span>
+                      <span className="oc-icon"><IconWrench /></span>
+                      <span><span className="oc-title">Volunteer</span><div className="oc-sub">I&rsquo;m part of the repair team</div></span>
                     </button>
                   </div>
                 </Field>
-                <Field label="Your name">
+                <Field label="Full name">
                   <input className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" />
                 </Field>
               </>
@@ -119,7 +123,7 @@ export default function AuthPage() {
                 autoComplete={tab === 'signin' ? 'current-password' : 'new-password'} />
             </Field>
             <button className="btn btn-primary btn-lg btn-block" disabled={busy}>
-              {busy ? 'One moment…' : tab === 'signin' ? 'Sign in' : 'Create my account'}
+              {busy ? 'One moment…' : tab === 'signin' ? 'Sign in' : 'Create account'}
             </button>
           </form>
 

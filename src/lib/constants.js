@@ -20,25 +20,6 @@ export const CATEGORIES = [
   'Musical Instrument',
 ]
 
-export const CATEGORY_ICONS = {
-  'Bicycles / scooters': '🚲',
-  'Clothing, fabric and textiles': '🧵',
-  'Household appliances (electric)': '🔌',
-  'Household appliances (non-electric)': '🫖',
-  'Clocks / alarm clocks': '⏰',
-  'Computers / phones / gadgets': '💻',
-  'Display and sound equipment': '📺',
-  'Furniture / upholstery': '🪑',
-  'Ornaments': '🏺',
-  'Jewellery': '💍',
-  'Shoes': '👞',
-  'Tools (electric)': '🛠️',
-  'Tools (non-electric)': '🔨',
-  'Toys (electric)': '🤖',
-  'Toys (non-electric)': '🧸',
-  'Musical Instrument': '🎸',
-}
-
 export const SKILLS = [
   'Electrical',
   'Electronics & IT',
@@ -105,10 +86,10 @@ export const STATUS_META = {
 }
 
 export const OUTCOMES = [
-  { value: 'fixed', label: 'Yes — fully repaired', short: 'Fixed' },
-  { value: 'partially_fixed', label: 'Partially — needs more work or parts', short: 'Partially fixed' },
-  { value: 'advice_given', label: 'Advice given — visitor can finish it at home', short: 'Advice given' },
-  { value: 'not_repairable', label: 'No — end of life', short: 'Not repairable' },
+  { value: 'fixed', label: 'Yes — the item was fully repaired', short: 'Repaired' },
+  { value: 'partially_fixed', label: 'Partially — further work or parts are needed', short: 'Partially repaired' },
+  { value: 'advice_given', label: 'Advice provided — the visitor can complete the repair at home', short: 'Advice provided' },
+  { value: 'not_repairable', label: 'No — the item has reached the end of its life', short: 'Not repairable' },
 ]
 
 export const OUTCOME_LABELS = Object.fromEntries(OUTCOMES.map((o) => [o.value, o.short]))

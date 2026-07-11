@@ -5,7 +5,7 @@ import { useRef, useState } from 'react'
    ≥8px markers with a 2px surface ring, 2px surface gaps between touching fills,
    hairline solid gridlines, muted axis text, hover tooltips on every mark. */
 
-const SURFACE = '#fffefb'
+const SURFACE = '#ffffff'
 
 function useTooltip() {
   const wrapRef = useRef(null)

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { CATEGORY_ICONS, OUTCOMES, OUTCOME_LABELS } from '../lib/constants'
+import { OUTCOMES, OUTCOME_LABELS } from '../lib/constants'
 import { formatSessionDate, formatShortDate, upcomingSessionDates } from '../lib/dates'
 import { Modal, DetailRow, StatusBadge, Field } from './ui'
 import ProgressSteps from './ProgressSteps'
@@ -14,8 +14,9 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
   const [error, setError] = useState('')
   const [assignTo, setAssignTo] = useState(repair.assigned_repairer_id ?? '')
   const [sessionDate, setSessionDate] = useState(repair.session_date ?? '')
+  const [lightbox, setLightbox] = useState(null)
 
-  // completion form (pre-filled per the workflow: repairer name is automatic)
+  // completion form (repairer name is filled in automatically)
   const [doneFor, setDoneFor] = useState(repair.visitor_name ?? '')
   const [diagnosis, setDiagnosis] = useState(repair.diagnosis ?? '')
   const [workDone, setWorkDone] = useState(repair.work_done ?? '')
@@ -57,7 +58,7 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
   const assignRepairer = async () => {
     const target = volunteers.find((v) => v.id === assignTo)
     if (!target) {
-      setError('Pick a repairer to assign.')
+      setError('Please select a repairer to assign.')
       return
     }
     await patch({
@@ -65,7 +66,6 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
       assigned_repairer_id: target.id,
       assigned_repairer_name: target.full_name,
       assigned_at: new Date().toISOString(),
-      // keep whatever session date is currently chosen
       session_date: sessionDate || repair.session_date || null,
       ...(repair.confirmed_at ? {} : { confirmed_at: new Date().toISOString() }),
     })
@@ -75,7 +75,7 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
 
   const completeRepair = async () => {
     if (!outcome) {
-      setError('Select whether the repair was possible.')
+      setError('Please record whether the repair was possible.')
       return
     }
     const done = await patch({
@@ -87,7 +87,7 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
       outcome,
       repair_possible: outcome !== 'not_repairable',
       repairer_notes: notes,
-      // a volunteer finishing an unassigned job claims it
+      // a volunteer completing an unassigned job takes ownership of it
       ...(repair.assigned_repairer_id
         ? {}
         : { assigned_repairer_id: profile?.id, assigned_repairer_name: profile?.full_name, assigned_at: new Date().toISOString() }),
@@ -119,33 +119,32 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
       >
         {error && <div className="form-error">{error}</div>}
         <div className="grid-2">
-          <Field label="Repair done for">
+          <Field label="Repair completed for">
             <input className="input" value={doneFor} onChange={(e) => setDoneFor(e.target.value)} />
           </Field>
-          <Field label="Repairer" hint="Filled in automatically">
+          <Field label="Repairer" hint="Recorded automatically">
             <input className="input" value={repair.assigned_repairer_name || profile?.full_name || ''} disabled />
           </Field>
         </div>
-        <Field label="What was wrong with it?" required>
+        <Field label="What was wrong with the item?" required>
           <textarea className="textarea" value={diagnosis} onChange={(e) => setDiagnosis(e.target.value)}
-            placeholder="Your findings — e.g. broken solder joint on the power switch" />
+            placeholder="Your findings — for example, a failed solder joint on the power switch" />
         </Field>
-        <Field label="What was done to fix it?">
+        <Field label="What work was carried out?">
           <textarea className="textarea" value={workDone} onChange={(e) => setWorkDone(e.target.value)}
-            placeholder="e.g. Re-soldered the joint and replaced the fuse" />
+            placeholder="For example, re-soldered the joint and replaced the fuse" />
         </Field>
         <Field label="Was the repair possible?" required>
           <div className="opt-cards">
             {OUTCOMES.map((o) => (
               <button type="button" key={o.value} className={`opt-card ${outcome === o.value ? 'on' : ''}`}
                 onClick={() => setOutcome(o.value)}>
-                <span className="oc-icon">{{ fixed: '✅', partially_fixed: '🔩', advice_given: '💡', not_repairable: '🪦' }[o.value]}</span>
                 <span><span className="oc-title">{o.short}</span><div className="oc-sub">{o.label}</div></span>
               </button>
             ))}
           </div>
         </Field>
-        <Field label="Extra notes" hint="Spare parts needed, advice given to the visitor, anything for next time">
+        <Field label="Additional notes" hint="Parts required, advice given to the visitor, or anything useful for next time">
           <textarea className="textarea" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
       </Modal>
@@ -162,7 +161,7 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
           <div className="detail-row">
             <div className="d-label">Session date</div>
             <select className="select mt-8" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)}>
-              <option value="">Choose a date…</option>
+              <option value="">Select a date…</option>
               {dateOptions.map((d) => (
                 <option key={d} value={d}>
                   {formatSessionDate(d)}{repair.preferred_dates?.includes(d) ? ' — requested' : ''}
@@ -172,7 +171,7 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
           </div>
           <div className="detail-row" style={{ alignSelf: 'end' }}>
             <button className="btn btn-primary btn-block" onClick={confirmAppointment} disabled={saving}>
-              ✓ Confirm appointment
+              Confirm appointment
             </button>
           </div>
         </>
@@ -183,7 +182,7 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
           <div className="detail-row">
             <div className="d-label">{repair.status === 'assigned' ? 'Reassign repairer' : 'Assign a repairer'}</div>
             <select className="select mt-8" value={assignTo} onChange={(e) => setAssignTo(e.target.value)}>
-              <option value="">Choose a repairer…</option>
+              <option value="">Select a repairer…</option>
               {volunteers.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.full_name}{v.id === profile?.id ? ' (me)' : ''}{v.skills?.length ? ` — ${v.skills.slice(0, 2).join(', ')}` : ''}
@@ -211,11 +210,11 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
           <div className="workflow-strip">
             {repair.status === 'assigned' && (
               <button className="btn btn-secondary" onClick={startRepair} disabled={saving}>
-                🔧 Start repair
+                Start repair
               </button>
             )}
             <button className="btn btn-primary" onClick={() => setView('complete')} disabled={saving}>
-              ✓ Complete repair…
+              Complete repair…
             </button>
           </div>
         </div>
@@ -225,8 +224,8 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
 
   return (
     <Modal
-      title={`${CATEGORY_ICONS[repair.category] ?? '🧰'} ${repair.item}`}
-      subtitle={`${repair.category} · booked ${formatShortDate(repair.created_at)}`}
+      title={repair.item}
+      subtitle={`${repair.category} · requested ${formatShortDate(repair.created_at)}`}
       onClose={onClose}
       footer={
         <>
@@ -248,9 +247,19 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <StatusBadge status={repair.status} />
         {repair.session_date && (
-          <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>📅 {formatSessionDate(repair.session_date)}{repair.preferred_time ? ` · ${repair.preferred_time}` : ''}</span>
+          <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>
+            {formatSessionDate(repair.session_date)}{repair.preferred_time ? ` · ${repair.preferred_time}` : ''}
+          </span>
         )}
       </div>
+
+      {repair.photos?.length > 0 && (
+        <div className="photo-strip">
+          {repair.photos.map((url) => (
+            <img key={url} src={url} alt={repair.item} onClick={() => setLightbox(url)} />
+          ))}
+        </div>
+      )}
 
       {repair.status !== 'cancelled' && (
         <div style={{ marginBottom: 18 }}>
@@ -260,36 +269,42 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
 
       <div className="detail-grid">
         <DetailRow label="Visitor" value={repair.visitor_name} />
-        <DetailRow label="Repairer" value={repair.assigned_repairer_name ?? 'Not assigned yet'} />
+        <DetailRow label="Repairer" value={repair.assigned_repairer_name ?? 'Not yet assigned'} />
         {isVolunteer && <DetailRow label="Email" value={repair.email} />}
         {isVolunteer && <DetailRow label="Phone" value={repair.phone} />}
         {isVolunteer && <DetailRow label="Contact preference" value={repair.contact_methods?.join(', ')} />}
-        {isVolunteer && <DetailRow label="Languages at home" value={repair.languages} />}
+        {isVolunteer && <DetailRow label="Languages spoken at home" value={repair.languages} />}
 
-        <div className="detail-sep">The item</div>
+        <div className="detail-sep">Item details</div>
         <DetailRow label="Brand" value={repair.brand} />
         <DetailRow label="Year of production" value={repair.year_of_production} />
-        <DetailRow label="Model / serial" value={repair.model_serial} />
+        <DetailRow label="Model / serial number" value={repair.model_serial} />
         <DetailRow label="Preferred time" value={repair.preferred_time} />
-        <DetailRow wide label="The problem" value={repair.problem_description} />
-        <DetailRow wide label="Parts & materials on hand" value={repair.parts_materials} />
+        <DetailRow wide label="Reported problem" value={repair.problem_description} />
+        <DetailRow wide label="Parts and materials supplied" value={repair.parts_materials} />
         {!repair.session_date && repair.preferred_dates?.length > 0 && (
-          <DetailRow wide label="Dates the visitor can attend" value={repair.preferred_dates.map(formatSessionDate).join(' · ')} />
+          <DetailRow wide label="Available dates" value={repair.preferred_dates.map(formatSessionDate).join(' · ')} />
         )}
 
         {(repair.diagnosis || repair.work_done || repair.outcome) && (
           <>
             <div className="detail-sep">Repair outcome</div>
-            <DetailRow label="Was repair possible?" value={repair.outcome ? OUTCOME_LABELS[repair.outcome] : null} />
+            <DetailRow label="Result" value={repair.outcome ? OUTCOME_LABELS[repair.outcome] : null} />
             <DetailRow label="Completed" value={repair.completed_at ? formatShortDate(repair.completed_at) : null} />
-            <DetailRow wide label="What was wrong" value={repair.diagnosis} />
-            <DetailRow wide label="What was done" value={repair.work_done} />
+            <DetailRow wide label="Diagnosis" value={repair.diagnosis} />
+            <DetailRow wide label="Work carried out" value={repair.work_done} />
             <DetailRow wide label="Notes" value={repair.repairer_notes} />
           </>
         )}
       </div>
 
       {workflow}
+
+      {lightbox && (
+        <div className="lightbox" onClick={() => setLightbox(null)}>
+          <img src={lightbox} alt={repair.item} />
+        </div>
+      )}
     </Modal>
   )
 }

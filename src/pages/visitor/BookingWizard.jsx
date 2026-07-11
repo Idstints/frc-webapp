@@ -1,20 +1,23 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import { CATEGORIES, CONTACT_METHODS, TIME_SLOTS, DEFAULT_CAFE_ID } from '../../lib/constants'
 import { upcomingSessionDates, formatSessionDate } from '../../lib/dates'
-import { Field, ChipGroup } from '../../components/ui'
+import { Field, ChipGroup, IconCamera, IconCheckCircle, IconX } from '../../components/ui'
 
-const STEP_LABELS = ['About you', 'Your item', 'The problem', 'Book a session']
+const STEP_LABELS = ['Your details', 'Your item', 'The problem', 'Book a session']
+const MAX_PHOTOS = 3
+const MAX_PHOTO_MB = 5
 
-// Mirrors the FRC Booking Request form, broken into four friendly steps.
+// Mirrors the FRC booking request form, presented in four short steps.
 export default function BookingWizard() {
   const { profile, updateProfile } = useAuth()
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [busyLabel, setBusyLabel] = useState('')
   const [done, setDone] = useState(false)
 
   const [form, setForm] = useState({
@@ -38,22 +41,63 @@ export default function BookingWizard() {
   const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }))
   const setInput = (key) => (e) => set(key)(e.target.value)
 
+  // item photos: kept locally until submission, then uploaded to storage
+  const [photos, setPhotos] = useState([]) // [{ file, url }]
+  const fileInputRef = useRef(null)
+  useEffect(() => () => photos.forEach((p) => URL.revokeObjectURL(p.url)), []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const addPhotos = (fileList) => {
+    setError('')
+    const incoming = [...fileList]
+    const next = [...photos]
+    for (const file of incoming) {
+      if (next.length >= MAX_PHOTOS) break
+      if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) {
+        setError('Photos must be JPEG, PNG, WebP or GIF files.')
+        continue
+      }
+      if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
+        setError(`Each photo must be under ${MAX_PHOTO_MB} MB.`)
+        continue
+      }
+      next.push({ file, url: URL.createObjectURL(file) })
+    }
+    setPhotos(next)
+  }
+
+  const removePhoto = (idx) => {
+    URL.revokeObjectURL(photos[idx].url)
+    setPhotos(photos.filter((_, i) => i !== idx))
+  }
+
+  const uploadPhotos = async () => {
+    const urls = []
+    for (const { file } of photos) {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      const path = `${profile.id}/${crypto.randomUUID()}.${ext}`
+      const { error: upErr } = await supabase.storage.from('repair-photos').upload(path, file)
+      if (upErr) throw new Error(`Photo upload failed: ${upErr.message}`)
+      urls.push(supabase.storage.from('repair-photos').getPublicUrl(path).data.publicUrl)
+    }
+    return urls
+  }
+
   const sessionDates = upcomingSessionDates(4)
 
   const validate = () => {
     if (step === 0) {
-      if (!form.visitor_name.trim()) return 'Please tell us your name.'
-      if (!form.email.trim()) return 'Please add an email address.'
-      if (!form.phone.trim()) return 'Please add a phone number.'
-      if (!form.postcode.trim()) return 'Please add your postcode.'
-      if (!form.contact_methods.length) return 'Pick at least one way we can contact you.'
+      if (!form.visitor_name.trim()) return 'Please enter your name.'
+      if (!form.email.trim()) return 'Please enter an email address.'
+      if (!form.phone.trim()) return 'Please enter a phone number.'
+      if (!form.postcode.trim()) return 'Please enter your postcode.'
+      if (!form.contact_methods.length) return 'Please select at least one contact method.'
     }
     if (step === 1) {
-      if (!form.item.trim()) return 'What is the item to be repaired?'
-      if (!form.category) return 'Pick the closest category.'
+      if (!form.item.trim()) return 'Please tell us what the item is.'
+      if (!form.category) return 'Please select the closest category.'
     }
     if (step === 2) {
-      if (!form.problem_description.trim()) return 'Tell us what needs fixing — whatever you know helps!'
+      if (!form.problem_description.trim()) return 'Please describe the problem — anything you know helps.'
     }
     return ''
   }
@@ -71,34 +115,39 @@ export default function BookingWizard() {
   const submit = async () => {
     setBusy(true)
     setError('')
-    const { error: err } = await supabase.from('repair_requests').insert({
-      cafe_id: DEFAULT_CAFE_ID,
-      visitor_id: profile.id,
-      ...form,
-      visitor_name: form.visitor_name.trim(),
-      session_date: form.preferred_dates[0] ?? null,
-    })
-    if (err) {
-      setError(err.message)
-      setBusy(false)
-      return
-    }
-    // quietly keep the profile up to date for next time
     try {
-      await updateProfile({ phone: form.phone, postcode: form.postcode, full_name: form.visitor_name.trim() })
-    } catch { /* non-fatal */ }
-    setDone(true)
+      setBusyLabel(photos.length ? 'Uploading photos…' : 'Submitting…')
+      const photoUrls = await uploadPhotos()
+      setBusyLabel('Submitting…')
+      const { error: err } = await supabase.from('repair_requests').insert({
+        cafe_id: DEFAULT_CAFE_ID,
+        visitor_id: profile.id,
+        ...form,
+        visitor_name: form.visitor_name.trim(),
+        photos: photoUrls,
+        session_date: form.preferred_dates[0] ?? null,
+      })
+      if (err) throw err
+      // keep the profile up to date for next time
+      try {
+        await updateProfile({ phone: form.phone, postcode: form.postcode, full_name: form.visitor_name.trim() })
+      } catch { /* non-fatal */ }
+      setDone(true)
+    } catch (e) {
+      setError(e.message ?? 'Something went wrong. Please try again.')
+      setBusy(false)
+    }
   }
 
   if (done) {
     return (
       <div className="page page-narrow">
         <div className="card done-screen">
-          <div className="big">🎉</div>
-          <h2>Booking received!</h2>
+          <div className="done-ic"><IconCheckCircle /></div>
+          <h2>Booking received</h2>
           <p>
-            Thanks {form.visitor_name.split(' ')[0]}! We&rsquo;ll confirm your appointment by 6pm on the
-            Wednesday before the session. You can watch its progress from your home page.
+            Thank you, {form.visitor_name.split(' ')[0]}. We&rsquo;ll confirm your appointment by 6pm on the
+            Wednesday before the session, and you can track its progress from your home page at any time.
           </p>
           <button className="btn btn-primary btn-lg" onClick={() => navigate('/')}>Back to my repairs</button>
         </div>
@@ -112,8 +161,9 @@ export default function BookingWizard() {
         <Link to="/" style={{ fontSize: 13, textDecoration: 'none', fontWeight: 600 }}>← Back</Link>
         <h1 style={{ marginTop: 10 }}>Book a repair</h1>
         <p>
-          Repair sessions run on the second Saturday of the month at Angliss Neighbourhood House.
-          Please bring just one item so everyone gets a turn. Bookings close 6pm the Wednesday before.
+          Repair sessions run on the second Saturday of each month at Angliss Neighbourhood House.
+          Please bring one item per visit so everyone gets a turn. Bookings close at 6pm on the
+          Wednesday before each session.
         </p>
       </div>
 
@@ -127,26 +177,26 @@ export default function BookingWizard() {
 
         {step === 0 && (
           <>
-            <Field label="Your name" required>
+            <Field label="Full name" required>
               <input className="input" value={form.visitor_name} onChange={setInput('visitor_name')} autoComplete="name" />
             </Field>
             <div className="grid-2">
-              <Field label="Your email address" required>
+              <Field label="Email address" required>
                 <input className="input" type="email" value={form.email} onChange={setInput('email')} autoComplete="email" />
               </Field>
-              <Field label="Your phone number" required>
+              <Field label="Phone number" required>
                 <input className="input" type="tel" value={form.phone} onChange={setInput('phone')} autoComplete="tel" />
               </Field>
             </div>
-            <Field label="Your postcode" required>
+            <Field label="Postcode" required>
               <input className="input" inputMode="numeric" value={form.postcode} onChange={setInput('postcode')} style={{ maxWidth: 160 }} />
             </Field>
-            <Field label="What is the best way to contact you?" required hint="Pick whatever suits you best.">
+            <Field label="Preferred contact method" required hint="Select all that suit you.">
               <ChipGroup options={CONTACT_METHODS} value={form.contact_methods} onChange={set('contact_methods')} />
             </Field>
             <Field label="Languages other than English spoken at home"
-              hint="Where possible we&rsquo;ll try to have someone who speaks your preferred language on site.">
-              <input className="input" value={form.languages} onChange={setInput('languages')} placeholder="e.g. Vietnamese, Italian" />
+              hint="Where possible, we&rsquo;ll arrange for someone who speaks your preferred language to be on site.">
+              <input className="input" value={form.languages} onChange={setInput('languages')} placeholder="For example, Vietnamese or Italian" />
             </Field>
           </>
         )}
@@ -154,22 +204,48 @@ export default function BookingWizard() {
         {step === 1 && (
           <>
             <Field label="What is the item to be repaired?" required>
-              <input className="input" value={form.item} onChange={setInput('item')} placeholder="e.g. Toaster, bike, winter coat" />
+              <input className="input" value={form.item} onChange={setInput('item')} placeholder="For example, a toaster, bicycle or winter coat" />
             </Field>
             <Field label="Category" required>
               <select className="select" value={form.category} onChange={setInput('category')}>
-                <option value="">Choose a category…</option>
+                <option value="">Select a category…</option>
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </Field>
-            <Field label="Brand name" hint="If you know it.">
+            <Field label="Photos of the item" hint={`Optional, up to ${MAX_PHOTOS} photos. They help our repairers prepare the right tools and parts before you arrive.`}>
+              <div className="upload-row">
+                {photos.map((p, i) => (
+                  <div className="upload-tile" key={p.url}>
+                    <img src={p.url} alt={`Item photo ${i + 1}`} />
+                    <button type="button" className="rm" onClick={() => removePhoto(i)} aria-label="Remove photo"><IconX /></button>
+                  </div>
+                ))}
+                {photos.length < MAX_PHOTOS && (
+                  <button type="button" className="upload-add" onClick={() => fileInputRef.current?.click()}>
+                    <span style={{ display: 'grid', placeItems: 'center' }}>
+                      <IconCamera />
+                      Add photo
+                    </span>
+                  </button>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                hidden
+                onChange={(e) => { addPhotos(e.target.files); e.target.value = '' }}
+              />
+            </Field>
+            <Field label="Brand" hint="If known.">
               <input className="input" value={form.brand} onChange={setInput('brand')} />
             </Field>
             <div className="grid-2">
-              <Field label="Year of production" hint="Just roughly — make a guess if you can!">
-                <input className="input" value={form.year_of_production} onChange={setInput('year_of_production')} placeholder="e.g. 2015" />
+              <Field label="Year of production" hint="An estimate is fine.">
+                <input className="input" value={form.year_of_production} onChange={setInput('year_of_production')} placeholder="For example, 2015" />
               </Field>
-              <Field label="Model, type or serial number" hint="Check the manual, or the back or underside of the item.">
+              <Field label="Model, type or serial number" hint="Often found in the manual, or on the back or underside of the item.">
                 <input className="input" value={form.model_serial} onChange={setInput('model_serial')} />
               </Field>
             </div>
@@ -178,10 +254,10 @@ export default function BookingWizard() {
 
         {step === 2 && (
           <>
-            <Field label="What is the problem that needs to be fixed?" required hint="Describe whatever you know about why it isn&rsquo;t working!">
+            <Field label="What is the problem that needs to be fixed?" required hint="Describe whatever you know about why it isn&rsquo;t working.">
               <textarea className="textarea" rows={5} value={form.problem_description} onChange={setInput('problem_description')} />
             </Field>
-            <Field label="What parts or materials do you have to help fix it?" hint="Let us know if you already have parts, materials or equipment.">
+            <Field label="Do you have any parts or materials that could help?" hint="Let us know if you already have spare parts, materials or equipment.">
               <textarea className="textarea" value={form.parts_materials} onChange={setInput('parts_materials')} />
             </Field>
           </>
@@ -189,19 +265,19 @@ export default function BookingWizard() {
 
         {step === 3 && (
           <>
-            <Field label="Which dates could you visit?" hint="Sessions are the second Saturday of each month.">
+            <Field label="Which dates could you attend?" hint="Sessions run on the second Saturday of each month. Select all dates that work for you.">
               <ChipGroup options={sessionDates} value={form.preferred_dates} onChange={set('preferred_dates')} />
               <div className="hint" style={{ marginTop: 6 }}>
                 {form.preferred_dates.length
                   ? form.preferred_dates.map(formatSessionDate).join(' · ')
-                  : 'Tap all the dates that work for you.'}
+                  : ''}
               </div>
             </Field>
-            <Field label="What time would you like to book in?"
-              hint="Things may get busy — we can&rsquo;t guarantee an exact time, but we&rsquo;ll do our best. No new repairs after 1.30pm.">
+            <Field label="Preferred arrival time"
+              hint="We can&rsquo;t guarantee an exact time, but we&rsquo;ll do our best to see you within your preferred window. No new repairs are started after 1.30pm.">
               <ChipGroup single options={TIME_SLOTS} value={form.preferred_time} onChange={set('preferred_time')} />
             </Field>
-            <Field label="How easy was this form to use?" hint="Optional — any comments or suggestions help us improve.">
+            <Field label="Feedback on this form" hint="Optional — any comments or suggestions help us improve.">
               <textarea className="textarea" value={form.form_feedback} onChange={setInput('form_feedback')} />
             </Field>
           </>
@@ -212,7 +288,7 @@ export default function BookingWizard() {
           <div className="spacer" />
           {step < 3
             ? <button className="btn btn-primary" onClick={next}>Continue →</button>
-            : <button className="btn btn-primary btn-lg" onClick={submit} disabled={busy}>{busy ? 'Sending…' : 'Submit booking'}</button>}
+            : <button className="btn btn-primary btn-lg" onClick={submit} disabled={busy}>{busy ? busyLabel : 'Submit booking'}</button>}
         </div>
       </div>
     </div>

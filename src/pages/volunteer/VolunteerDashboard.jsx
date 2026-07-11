@@ -9,9 +9,9 @@ import MyBenchTab from './MyBenchTab'
 import InsightsTab from './InsightsTab'
 
 const TABS = [
-  { key: 'browse', label: 'Repair board', icon: '🗂️' },
-  { key: 'bench', label: 'My bench', icon: '🔧' },
-  { key: 'insights', label: 'Insights', icon: '📊' },
+  { key: 'browse', label: 'Repair board' },
+  { key: 'bench', label: 'My assignments' },
+  { key: 'insights', label: 'Reports' },
 ]
 
 export default function VolunteerDashboard() {
@@ -51,7 +51,7 @@ export default function VolunteerDashboard() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <CafeSelector cafes={cafes} selected={cafeId} onSelect={setCafeId} />
         <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-          Sessions: second Saturday of the month · 11am – 1.30pm
+          Sessions run on the second Saturday of each month, 11am – 1.30pm
         </span>
       </div>
 
@@ -59,7 +59,7 @@ export default function VolunteerDashboard() {
         {TABS.map((t) => (
           <button key={t.key} role="tab" aria-selected={tab === t.key}
             className={tab === t.key ? 'on' : ''} onClick={() => setTab(t.key)}>
-            <span aria-hidden="true">{t.icon}</span> {t.label}
+            {t.label}
           </button>
         ))}
       </div>

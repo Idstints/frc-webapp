@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { SKILLS } from '../../lib/constants'
 import { formatShortDate } from '../../lib/dates'
-import { EmptyState, ChipGroup, initialsOf } from '../../components/ui'
+import { EmptyState, ChipGroup, initialsOf, IconWrench } from '../../components/ui'
 import RepairCard from '../../components/RepairCard'
 import RepairDetailModal from '../../components/RepairDetailModal'
 
@@ -39,7 +39,7 @@ export default function MyBenchTab({ repairs, volunteers, profile, onRepairUpdat
           <div className="v-meta">
             {[profile.email, profile.phone, profile.suburb].filter(Boolean).join(' · ') || 'No contact details yet'}
           </div>
-          <div className="v-meta">Volunteering since {formatShortDate(profile.created_at)}</div>
+          <div className="v-meta">Member of the repair team since {formatShortDate(profile.created_at)}</div>
           <div style={{ marginTop: 10 }}>
             {editingSkills ? (
               <>
@@ -57,25 +57,25 @@ export default function MyBenchTab({ repairs, volunteers, profile, onRepairUpdat
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 {(profile.skills ?? []).map((s) => <span key={s} className="skill-tag">{s}</span>)}
                 <button className="btn btn-ghost btn-sm" onClick={() => setEditingSkills(true)}>
-                  {profile.skills?.length ? '✎ Edit' : '+ Add your specialisations'}
+                  {profile.skills?.length ? 'Edit' : 'Add your specialisations'}
                 </button>
               </div>
             )}
           </div>
         </div>
         <div className="vol-stats">
-          <div className="vol-stat"><div className="n">{active.length}</div><div className="l">On the bench</div></div>
+          <div className="vol-stat"><div className="n">{active.length}</div><div className="l">In progress</div></div>
           <div className="vol-stat"><div className="n">{finished.length}</div><div className="l">Completed</div></div>
         </div>
       </div>
 
       <div className="section-head">
-        <h2>On my bench</h2>
-        <span className="count">{active.length} repair{active.length === 1 ? '' : 's'} assigned to you</span>
+        <h2>Assigned to me</h2>
+        <span className="count">{active.length} repair{active.length === 1 ? '' : 's'}</span>
       </div>
       {active.length === 0 ? (
-        <EmptyState icon="🛋️" title="Nothing on your bench">
-          Head to the Repair board and assign yourself something from the queue.
+        <EmptyState icon={<IconWrench />} title="No repairs assigned">
+          Open the Repair board to pick up a repair from the queue.
         </EmptyState>
       ) : (
         <div className="repair-list">
@@ -88,8 +88,8 @@ export default function MyBenchTab({ repairs, volunteers, profile, onRepairUpdat
       {finished.length > 0 && (
         <>
           <div className="section-head">
-            <h2>Completed by me</h2>
-            <span className="count">{finished.length}</span>
+            <h2>Recently completed</h2>
+            <span className="count">{finished.length} in total</span>
           </div>
           <div className="repair-list">
             {finished.slice(0, 8).map((r) => (

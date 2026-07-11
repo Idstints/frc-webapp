@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { STATUS_META, SUCCESS_OUTCOMES, OUTCOME_LABELS } from '../../lib/constants'
 import { monthKey, formatMonthKey } from '../../lib/dates'
 import { StatTile, HBarChart, DonutChart, LineChart, RankList } from '../../components/charts/Charts'
+import { IconDownload } from '../../components/ui'
 
 // Tab 3 — reporting & analytics: what got repaired, how often it worked,
 // and what people bring in most (the RepairMonitor wrap-up view).
@@ -91,56 +92,56 @@ export default function InsightsTab({ repairs, volunteers }) {
   return (
     <div>
       <div className="section-head" style={{ marginTop: 0 }}>
-        <h2>How the cafe is going</h2>
-        <span className="count">across {stats.real.length} booking{stats.real.length === 1 ? '' : 's'}</span>
+        <h2>Reporting overview</h2>
+        <span className="count">{stats.real.length} booking{stats.real.length === 1 ? '' : 's'} recorded</span>
         <span className="spacer" />
-        <button className="btn btn-secondary btn-sm" onClick={exportCsv}>⭳ Export CSV</button>
+        <button className="btn btn-secondary btn-sm" onClick={exportCsv}><IconDownload /> Export CSV</button>
       </div>
 
       <div className="stat-row">
-        <StatTile label="Repairs booked" value={stats.real.length} note="all time" />
+        <StatTile label="Total bookings" value={stats.real.length} note="all time" />
         <StatTile label="Repairs completed" value={stats.completed.length}
-          note={stats.completed.length ? `${stats.succeeded.length} left better than they came` : 'none yet'} noteUp={stats.succeeded.length > 0} />
-        <StatTile label="Fix rate" value={stats.fixRate === null ? '—' : `${stats.fixRate}%`}
-          note="fixed, improved or advised" />
-        <StatTile label="This month" value={stats.thisMonth.length} note="bookings" />
-        <StatTile label="Repair team" value={volunteers.length} note="active volunteers" />
+          note={stats.completed.length ? `${stats.succeeded.length} successful outcomes` : 'none yet'} noteUp={stats.succeeded.length > 0} />
+        <StatTile label="Repair success rate" value={stats.fixRate === null ? '—' : `${stats.fixRate}%`}
+          note="repaired, improved or advised" />
+        <StatTile label="Bookings this month" value={stats.thisMonth.length} />
+        <StatTile label="Active volunteers" value={volunteers.length} />
       </div>
 
       <div className="charts-grid">
         <div className="card chart-card wide">
-          <h3>Repairs per month</h3>
-          <div className="ch-sub">Bookings by session date, last 12 months</div>
-          <LineChart data={stats.monthly} yLabel="repairs" />
+          <h3>Monthly repair activity</h3>
+          <div className="ch-sub">Bookings by session month, last 12 months</div>
+          <LineChart data={stats.monthly} yLabel="bookings" />
         </div>
 
         <div className="card chart-card">
-          <h3>Where things stand</h3>
-          <div className="ch-sub">Every booking by current status</div>
+          <h3>Bookings by status</h3>
+          <div className="ch-sub">Current position of every booking</div>
           <DonutChart data={stats.statusMix} />
         </div>
 
         <div className="card chart-card">
-          <h3>What people bring in</h3>
-          <div className="ch-sub">Bookings by category</div>
+          <h3>Repairs by category</h3>
+          <div className="ch-sub">What visitors bring in most</div>
           <HBarChart data={stats.topCats} color="#2a78d6" />
         </div>
 
         <div className="card chart-card">
-          <h3>Fix rate by category</h3>
-          <div className="ch-sub">Share of completed repairs that succeeded</div>
+          <h3>Success rate by category</h3>
+          <div className="ch-sub">Completed repairs with a successful outcome</div>
           <HBarChart data={stats.fixByCat} color="#008300" valueSuffix="%" maxBars={12} />
         </div>
 
         <div className="card chart-card">
           <h3>Most common items</h3>
-          <div className="ch-sub">The things Footscray brings back to life</div>
+          <div className="ch-sub">Items brought in most frequently</div>
           <RankList items={stats.topItems} suffix=" brought in" />
         </div>
 
         <div className="card chart-card wide">
           <h3>Repair outcomes</h3>
-          <div className="ch-sub">How completed repairs ended up</div>
+          <div className="ch-sub">Results across all completed repairs</div>
           <DonutChart data={stats.outcomeMix} />
         </div>
       </div>

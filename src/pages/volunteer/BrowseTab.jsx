@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { STATUS_META, SKILLS } from '../../lib/constants'
 import { formatShortDate } from '../../lib/dates'
-import { EmptyState, FilterIcon, SearchIcon, ChipGroup, initialsOf } from '../../components/ui'
+import { EmptyState, FilterIcon, SearchIcon, ChipGroup, initialsOf, IconUsers } from '../../components/ui'
 import RepairCard from '../../components/RepairCard'
 import RepairDetailModal from '../../components/RepairDetailModal'
 
@@ -58,10 +58,10 @@ export default function BrowseTab({ repairs, volunteers, profile, onRepairUpdate
     <div>
       <div className="seg" role="tablist" style={{ marginBottom: 16 }}>
         <button role="tab" aria-selected={mode === 'repairs'} className={mode === 'repairs' ? 'on' : ''} onClick={() => setMode('repairs')}>
-          🧰 Repairs
+          Repairs
         </button>
         <button role="tab" aria-selected={mode === 'repairers'} className={mode === 'repairers' ? 'on' : ''} onClick={() => setMode('repairers')}>
-          🙋 Repairers
+          Repairers
         </button>
       </div>
 
@@ -70,7 +70,7 @@ export default function BrowseTab({ repairs, volunteers, profile, onRepairUpdate
           <div className="filterbar">
             <span className="f-ic"><FilterIcon /></span>
             <span className="f-ic" style={{ paddingLeft: 0 }}><SearchIcon /></span>
-            <input className="input search" placeholder="Search item, visitor or repairer…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input className="input search" placeholder="Search by item, visitor or repairer" value={search} onChange={(e) => setSearch(e.target.value)} />
             <select className="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filter by status">
               <option value="all">All statuses</option>
               <option value="open">Open (not finished)</option>
@@ -84,8 +84,8 @@ export default function BrowseTab({ repairs, volunteers, profile, onRepairUpdate
           </div>
 
           {visibleRepairs.length === 0 ? (
-            <EmptyState icon="🗂️" title={repairs.length ? 'Nothing matches those filters' : 'No repairs in the book yet'}>
-              {repairs.length ? 'Try widening the search or status filter.' : 'Bookings will appear here as visitors make them.'}
+            <EmptyState title={repairs.length ? 'Nothing matches those filters' : 'No repairs recorded yet'}>
+              {repairs.length ? 'Try widening the search or status filter.' : 'Bookings will appear here as visitors submit them.'}
             </EmptyState>
           ) : (
             <div className="repair-list">
@@ -99,15 +99,15 @@ export default function BrowseTab({ repairs, volunteers, profile, onRepairUpdate
         <>
           <div className="filterbar">
             <span className="f-ic"><SearchIcon /></span>
-            <input className="input search" placeholder="Search repairers by name or suburb…" value={volSearch} onChange={(e) => setVolSearch(e.target.value)} />
+            <input className="input search" placeholder="Search repairers by name or suburb" value={volSearch} onChange={(e) => setVolSearch(e.target.value)} />
           </div>
           <div style={{ marginBottom: 14 }}>
             <ChipGroup small options={SKILLS} value={skillFilter} onChange={setSkillFilter} />
           </div>
 
           {visibleVolunteers.length === 0 ? (
-            <EmptyState icon="🙋" title="No repairers match">
-              Try removing a specialisation filter, or invite more volunteers to sign up!
+            <EmptyState icon={<IconUsers />} title="No repairers match">
+              Try removing a specialisation filter, or invite more volunteers to register.
             </EmptyState>
           ) : (
             <div className="repair-list">

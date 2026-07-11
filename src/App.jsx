@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
-import { Splash, WrenchMark, initialsOf } from './components/ui'
+import { Splash, BrandLogo, BrandMarkFallback, initialsOf } from './components/ui'
 import AuthPage from './pages/AuthPage'
 import RoleSelectPage from './pages/RoleSelectPage'
 import VisitorHome from './pages/visitor/VisitorHome'
@@ -14,7 +14,8 @@ function TopBar() {
     <header className="topbar">
       <div className="topbar-inner">
         <Link to="/" className="brand">
-          <div className="brand-mark"><WrenchMark /></div>
+          <BrandLogo height={42} />
+          <BrandMarkFallback />
           <div>
             <div className="brand-name">Footscray Repair Cafe</div>
             <div className="brand-sub">Angliss Neighbourhood House</div>
@@ -25,7 +26,7 @@ function TopBar() {
           <div className="avatar">{initialsOf(profile?.full_name)}</div>
           <div className="who">
             <div className="name">{profile?.full_name || 'Welcome'}</div>
-            <div className="role">{profile?.role === 'volunteer' ? 'Repair team' : 'Visitor'}</div>
+            <div className="role">{profile?.role === 'volunteer' ? 'Volunteer' : 'Visitor'}</div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={signOut}>Sign out</button>
         </div>

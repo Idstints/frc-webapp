@@ -13,7 +13,8 @@ job allocation and status tracking, and a reporting/analytics dashboard.
 
 - Sign in with email/password or Google, choosing *Visitor* or *Volunteer* at signup
 - **Book a repair** — a 4-step wizard mirroring the FRC Booking Request Google Form
-  (contact details, item + category, the problem, session date & time slot)
+  (contact details, item + category, the problem, session date & time slot), with **up to three
+  item photos** uploaded to Supabase Storage so repairers can see the item before the session
 - **Join the repair team** — the volunteer application form (skills, availability, donations)
 - **My repairs** — every booking with a 4-step progress tracker
   (*Appointment confirmed → Repairer assigned → Repair in progress → Repair completed*),
@@ -60,6 +61,12 @@ dashboard by setting `profiles.role = 'volunteer'`.
 
 The database is seeded with 6 volunteers, 6 visitors, and ~36 repairs across eight months of
 sessions so the board and analytics have life in them.
+
+## Branding
+
+The site logo lives at `public/logo.png` (currently extracted from the FRC email signature).
+Replace that file with a higher-resolution transparent PNG to update the logo everywhere — the
+top bar and the sign-in page both read from it, and fall back to a wordmark tile if it's missing.
 
 ## Local development
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import { STATUS_META } from '../../lib/constants'
-import { EmptyState, Spinner, FilterIcon, SearchIcon } from '../../components/ui'
+import { EmptyState, Spinner, FilterIcon, SearchIcon, IconWrench, IconHeart, IconClipboard } from '../../components/ui'
 import RepairCard from '../../components/RepairCard'
 import RepairDetailModal from '../../components/RepairDetailModal'
 
@@ -47,25 +47,25 @@ export default function VisitorHome() {
 
   return (
     <div className="page">
-      <h1 style={{ fontSize: 26, fontWeight: 800 }}>
-        {firstName ? `G'day, ${firstName}!` : "G'day!"}
+      <h1 style={{ fontSize: 23, fontWeight: 700, letterSpacing: '-0.02em' }}>
+        {firstName ? `Welcome back, ${firstName}` : 'Welcome'}
       </h1>
-      <p style={{ color: 'var(--ink-2)', marginTop: 4, marginBottom: 22 }}>
-        What would you like to do today?
+      <p style={{ color: 'var(--ink-2)', marginTop: 4, marginBottom: 22, fontSize: 13.5 }}>
+        Book a repair for our next session, or track the items you&rsquo;ve already brought in.
       </p>
 
       <div className="action-grid">
         <Link to="/book" className="action-card action-book">
-          <div className="ac-icon">🛠️</div>
+          <div className="ac-icon"><IconWrench /></div>
           <h3>Book a repair</h3>
-          <p>Bring one item along to our next session and we&rsquo;ll try to fix it together — for free.</p>
+          <p>Reserve a place at our next session. Bring one item along and our volunteer repairers will work on it with you, free of charge.</p>
           <span className="ac-cta">Start a booking →</span>
         </Link>
         <Link to="/volunteer-apply" className="action-card action-volunteer">
-          <div className="ac-icon">💚</div>
-          <h3>Join the repair team</h3>
-          <p>Handy with tools, a sewing machine or a soldering iron? Or just great with people? We&rsquo;d love your help.</p>
-          <span className="ac-cta">Volunteer with us →</span>
+          <div className="ac-icon"><IconHeart /></div>
+          <h3>Volunteer with us</h3>
+          <p>Good with tools, sewing, electronics — or simply good with people? Join the repair team or help welcome visitors on the day.</p>
+          <span className="ac-cta">Apply to volunteer →</span>
         </Link>
       </div>
 
@@ -77,7 +77,7 @@ export default function VisitorHome() {
       <div className="filterbar">
         <span className="f-ic"><FilterIcon /></span>
         <span className="f-ic" style={{ paddingLeft: 0 }}><SearchIcon /></span>
-        <input className="input search" placeholder="Search by item name…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className="input search" placeholder="Search by item name" value={search} onChange={(e) => setSearch(e.target.value)} />
         <select className="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filter by status">
           <option value="all">All statuses</option>
           {Object.entries(STATUS_META).map(([k, v]) => (
@@ -94,7 +94,7 @@ export default function VisitorHome() {
       {!repairs ? (
         <div style={{ display: 'grid', placeItems: 'center', padding: 40 }}><Spinner /></div>
       ) : visible.length === 0 ? (
-        <EmptyState icon="🧺" title={repairs.length ? 'Nothing matches those filters' : 'No repairs booked yet'}>
+        <EmptyState icon={<IconClipboard />} title={repairs.length ? 'Nothing matches those filters' : 'No repairs booked yet'}>
           {repairs.length ? 'Try clearing the search or status filter.' : 'Book your first repair above — it only takes a couple of minutes.'}
         </EmptyState>
       ) : (

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { IconMapPin } from './ui'
 
 // One cafe today — the switcher is already wired for a multi-cafe future.
 export default function CafeSelector({ cafes = [], selected, onSelect }) {
@@ -24,7 +25,7 @@ export default function CafeSelector({ cafes = [], selected, onSelect }) {
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="pin">📍</span>
+        <span className="pin"><IconMapPin /></span>
         {current?.name ?? 'Repair Cafe'}
         <svg className="caret" width="11" height="7" viewBox="0 0 12 8" fill="none" aria-hidden="true">
           <path d="M1 1l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -44,7 +45,7 @@ export default function CafeSelector({ cafes = [], selected, onSelect }) {
               }}
               style={{ cursor: 'pointer' }}
             >
-              <span>📍</span>
+              <span className="pin"><IconMapPin /></span>
               <div>
                 {cafe.name}
                 {cafe.venue && <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{cafe.venue}</div>}
@@ -52,7 +53,7 @@ export default function CafeSelector({ cafes = [], selected, onSelect }) {
               {cafe.id === current?.id && <span style={{ marginLeft: 'auto', color: 'var(--green-600)' }}>✓</span>}
             </div>
           ))}
-          <div className="cp-soon">More repair cafes coming soon</div>
+          <div className="cp-soon">Additional repair cafes can be added here in future.</div>
         </div>
       )}
     </div>

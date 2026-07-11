@@ -13,8 +13,12 @@ job allocation and status tracking, and a reporting/analytics dashboard.
 
 - Sign in with email/password or Google, choosing *Visitor* or *Volunteer* at signup
 - **Book a repair** — a 4-step wizard mirroring the FRC Booking Request Google Form
-  (contact details, item + category, the problem, session date & time slot), with **up to three
-  item photos** uploaded to Supabase Storage so repairers can see the item before the session
+  (contact details, item + category, the problem), with **up to three item photos** uploaded to
+  Supabase Storage so repairers can see the item before the session, and a **live appointment
+  picker**: upcoming session Saturdays with half-hour slots showing real-time availability
+  (3 concurrent appointments per slot — change `SLOT_CAPACITY` in `src/lib/constants.js`).
+  Slot counts come from a privacy-preserving database function that exposes only totals,
+  never other visitors' details, and the chosen slot is re-checked at submission
 - **Join the repair team** — the volunteer application form (skills, availability, donations)
 - **My repairs** — every booking with a 4-step progress tracker
   (*Appointment confirmed → Repairer assigned → Repair in progress → Repair completed*),
@@ -48,9 +52,15 @@ multi-cafe ready):
 | `repair_requests` | The whole booking-form payload + workflow state (`pending → confirmed → assigned → in_progress → completed`, or `cancelled`), timestamps per step, and the repairer's outcome (`fixed`, `partially_fixed`, `advice_given`, `not_repairable`) |
 | `volunteer_applications` | Submissions from the "Join the team" form |
 
-Row-level security: visitors can only see/create their own repairs and applications; volunteers
-(via the `is_volunteer()` helper) can see and manage everything. Promote a member to the volunteer
-dashboard by setting `profiles.role = 'volunteer'`.
+Row-level security: visitors can only see/create their own repairs and applications; approved
+volunteers (via the `is_volunteer()` helper) can see and manage everything.
+
+**Volunteer approval gate:** anyone can sign up as a volunteer, but the account starts
+unapproved — they see a "pending review" screen and row-level security hides all repair and
+visitor data from them until approved. Current team members approve or decline new volunteers
+from the *Repair board → Repairers* view (declining converts the account to a visitor account).
+Approvals go through the `set_volunteer_approval()` database function, so team members can
+never edit other fields of someone else's profile.
 
 ## Demo accounts
 

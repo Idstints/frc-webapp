@@ -309,6 +309,37 @@ svg.ic { width: 17px; height: 17px; flex: none; }
 .upload-add:hover { border-color: var(--green-500); color: var(--green-700); }
 .upload-add svg { width: 18px; height: 18px; margin-bottom: 2px; }
 
+/* ============ appointment slot picker ============ */
+.date-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.date-card {
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
+  padding: 12px 14px; cursor: pointer; text-align: left; transition: all 0.13s;
+}
+.date-card:hover { border-color: var(--muted); }
+.date-card.on { border-color: var(--green-600); background: var(--green-wash); }
+.date-card .dc-day { font-size: 11px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.date-card.on .dc-day { color: var(--green-700); }
+.date-card .dc-date { font-weight: 650; font-size: 14px; margin-top: 2px; }
+.date-card .dc-note { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+.slot {
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
+  padding: 10px 12px; cursor: pointer; text-align: left; transition: all 0.13s;
+}
+.slot:hover:not(:disabled) { border-color: var(--muted); }
+.slot.on { border-color: var(--green-600); background: var(--green-wash); }
+.slot:disabled { cursor: not-allowed; background: var(--surface-2); color: var(--muted); }
+.slot .sl-time { font-weight: 650; font-size: 13.5px; }
+.slot:disabled .sl-time { color: var(--muted); text-decoration: line-through; }
+.slot .sl-avail { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.slot.on .sl-avail { color: var(--green-700); }
+.slot .sl-avail.low { color: var(--amber-deep); font-weight: 600; }
+.slot.on .sl-avail.low { color: var(--amber-deep); }
+
+/* ============ team approval queue ============ */
+.approve-card { padding: 15px 18px; display: flex; gap: 13px; align-items: center; flex-wrap: wrap; border-color: #ecdcb4; background: #fffdf6; }
+.approve-card .a-actions { margin-left: auto; display: flex; gap: 8px; }
+
 /* status badge */
 .badge {
   display: inline-flex; align-items: center; gap: 6px;

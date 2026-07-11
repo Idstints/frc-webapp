@@ -22,19 +22,27 @@ export default function VolunteerDashboard() {
   const [repairs, setRepairs] = useState(null)
   const [volunteers, setVolunteers] = useState(null)
 
+  const loadTeam = async () => {
+    const { data, error } = await supabase
+      .from('profiles').select('*')
+      .eq('role', 'volunteer').eq('is_active', true)
+      .order('full_name')
+    if (error) console.error(error)
+    setVolunteers(data ?? [])
+  }
+
   useEffect(() => {
     let live = true
     const load = async () => {
-      const [cafeRes, repairRes, volRes] = await Promise.all([
+      const [cafeRes, repairRes] = await Promise.all([
         supabase.from('cafes').select('*').order('created_at'),
         supabase.from('repair_requests').select('*').order('created_at', { ascending: false }),
-        supabase.from('profiles').select('*').eq('role', 'volunteer').eq('is_active', true).order('full_name'),
       ])
       if (!live) return
       setCafes(cafeRes.data ?? [])
       setRepairs(repairRes.data ?? [])
-      setVolunteers(volRes.data ?? [])
-      for (const res of [cafeRes, repairRes, volRes]) if (res.error) console.error(res.error)
+      for (const res of [cafeRes, repairRes]) if (res.error) console.error(res.error)
+      await loadTeam()
     }
     load()
     return () => { live = false }
@@ -42,6 +50,8 @@ export default function VolunteerDashboard() {
 
   if (repairs === null || volunteers === null) return <Splash />
 
+  const team = volunteers.filter((v) => v.approved)
+  const pendingTeam = volunteers.filter((v) => !v.approved)
   const cafeRepairs = repairs.filter((r) => !r.cafe_id || r.cafe_id === cafeId)
   const updateRepair = (updated) =>
     setRepairs((rs) => rs.map((r) => (r.id === updated.id ? updated : r)))
@@ -65,12 +75,13 @@ export default function VolunteerDashboard() {
       </div>
 
       {tab === 'browse' && (
-        <BrowseTab repairs={cafeRepairs} volunteers={volunteers} profile={profile} onRepairUpdated={updateRepair} />
+        <BrowseTab repairs={cafeRepairs} volunteers={team} pendingVolunteers={pendingTeam}
+          profile={profile} onRepairUpdated={updateRepair} onTeamChanged={loadTeam} />
       )}
       {tab === 'bench' && (
-        <MyBenchTab repairs={cafeRepairs} volunteers={volunteers} profile={profile} onRepairUpdated={updateRepair} />
+        <MyBenchTab repairs={cafeRepairs} volunteers={team} profile={profile} onRepairUpdated={updateRepair} />
       )}
-      {tab === 'insights' && <InsightsTab repairs={cafeRepairs} volunteers={volunteers} />}
+      {tab === 'insights' && <InsightsTab repairs={cafeRepairs} volunteers={team} />}
     </div>
   )
 }

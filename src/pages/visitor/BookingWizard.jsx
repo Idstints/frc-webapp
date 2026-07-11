@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
-import { CATEGORIES, CONTACT_METHODS, TIME_SLOTS, DEFAULT_CAFE_ID } from '../../lib/constants'
-import { upcomingSessionDates, formatSessionDate } from '../../lib/dates'
-import { Field, ChipGroup, IconCamera, IconCheckCircle, IconX } from '../../components/ui'
+import { CATEGORIES, CONTACT_METHODS, TIME_SLOTS, SLOT_CAPACITY, DEFAULT_CAFE_ID } from '../../lib/constants'
+import { bookableSessionDates, toISODate, formatSessionDate } from '../../lib/dates'
+import { Field, ChipGroup, Spinner, IconCamera, IconCheckCircle, IconX } from '../../components/ui'
 
 const STEP_LABELS = ['Your details', 'Your item', 'The problem', 'Book a session']
 const MAX_PHOTOS = 3
@@ -34,12 +34,32 @@ export default function BookingWizard() {
     model_serial: '',
     problem_description: '',
     parts_materials: '',
-    preferred_dates: [],
+    session_date: '',
     preferred_time: '',
     form_feedback: '',
   })
   const set = (key) => (value) => setForm((f) => ({ ...f, [key]: value }))
   const setInput = (key) => (e) => set(key)(e.target.value)
+
+  // live slot availability for upcoming sessions
+  const sessionDates = bookableSessionDates(4)
+  const [slotsTaken, setSlotsTaken] = useState(null) // { 'date|time': count }
+  const loadAvailability = async () => {
+    const { data, error: err } = await supabase.rpc('slot_availability', { from_date: toISODate(new Date()) })
+    if (err) {
+      console.error(err)
+      setSlotsTaken({})
+      return {}
+    }
+    const map = {}
+    for (const row of data ?? []) map[`${row.session_date}|${row.preferred_time}`] = Number(row.bookings)
+    setSlotsTaken(map)
+    return map
+  }
+  useEffect(() => {
+    if (step === 3 && slotsTaken === null) loadAvailability()
+  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+  const takenFor = (map, date, time) => map?.[`${date}|${time}`] ?? 0
 
   // item photos: kept locally until submission, then uploaded to storage
   const [photos, setPhotos] = useState([]) // [{ file, url }]
@@ -82,8 +102,6 @@ export default function BookingWizard() {
     return urls
   }
 
-  const sessionDates = upcomingSessionDates(4)
-
   const validate = () => {
     if (step === 0) {
       if (!form.visitor_name.trim()) return 'Please enter your name.'
@@ -99,6 +117,10 @@ export default function BookingWizard() {
     if (step === 2) {
       if (!form.problem_description.trim()) return 'Please describe the problem — anything you know helps.'
     }
+    if (step === 3) {
+      if (!form.session_date) return 'Please choose a session date.'
+      if (!form.preferred_time) return 'Please choose an appointment time.'
+    }
     return ''
   }
 
@@ -113,9 +135,20 @@ export default function BookingWizard() {
   }
 
   const submit = async () => {
+    const problem = validate()
+    if (problem) {
+      setError(problem)
+      return
+    }
     setBusy(true)
     setError('')
     try {
+      // re-check the chosen slot right before booking, in case it just filled
+      setBusyLabel('Checking availability…')
+      const fresh = await loadAvailability()
+      if (takenFor(fresh, form.session_date, form.preferred_time) >= SLOT_CAPACITY) {
+        throw new Error('That time was booked out a moment ago — please choose another slot.')
+      }
       setBusyLabel(photos.length ? 'Uploading photos…' : 'Submitting…')
       const photoUrls = await uploadPhotos()
       setBusyLabel('Submitting…')
@@ -125,7 +158,7 @@ export default function BookingWizard() {
         ...form,
         visitor_name: form.visitor_name.trim(),
         photos: photoUrls,
-        session_date: form.preferred_dates[0] ?? null,
+        preferred_dates: [form.session_date],
       })
       if (err) throw err
       // keep the profile up to date for next time
@@ -146,8 +179,9 @@ export default function BookingWizard() {
           <div className="done-ic"><IconCheckCircle /></div>
           <h2>Booking received</h2>
           <p>
-            Thank you, {form.visitor_name.split(' ')[0]}. We&rsquo;ll confirm your appointment by 6pm on the
-            Wednesday before the session, and you can track its progress from your home page at any time.
+            Thank you, {form.visitor_name.split(' ')[0]}. Your appointment is requested for{' '}
+            {formatSessionDate(form.session_date)} at {form.preferred_time}. We&rsquo;ll confirm it by 6pm
+            on the Wednesday before the session, and you can track its progress from your home page.
           </p>
           <button className="btn btn-primary btn-lg" onClick={() => navigate('/')}>Back to my repairs</button>
         </div>
@@ -265,18 +299,50 @@ export default function BookingWizard() {
 
         {step === 3 && (
           <>
-            <Field label="Which dates could you attend?" hint="Sessions run on the second Saturday of each month. Select all dates that work for you.">
-              <ChipGroup options={sessionDates} value={form.preferred_dates} onChange={set('preferred_dates')} />
-              <div className="hint" style={{ marginTop: 6 }}>
-                {form.preferred_dates.length
-                  ? form.preferred_dates.map(formatSessionDate).join(' · ')
-                  : ''}
+            <Field label="Choose a session" hint="The cafe runs on the second Saturday of each month, 11am – 1.30pm. Bookings close at 6pm on the Wednesday before each session.">
+              <div className="date-cards">
+                {sessionDates.map((d) => {
+                  const dateObj = new Date(`${d}T00:00:00`)
+                  const taken = TIME_SLOTS.reduce((s, t) => s + Math.min(takenFor(slotsTaken, d, t), SLOT_CAPACITY), 0)
+                  const total = TIME_SLOTS.length * SLOT_CAPACITY
+                  return (
+                    <button type="button" key={d} className={`date-card ${form.session_date === d ? 'on' : ''}`}
+                      onClick={() => setForm((f) => ({ ...f, session_date: d, preferred_time: '' }))}>
+                      <div className="dc-day">{dateObj.toLocaleDateString('en-AU', { weekday: 'long' })}</div>
+                      <div className="dc-date">{dateObj.toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                      <div className="dc-note">{slotsTaken === null ? ' ' : total - taken > 0 ? `${total - taken} of ${total} appointments free` : 'Fully booked'}</div>
+                    </button>
+                  )
+                })}
               </div>
             </Field>
-            <Field label="Preferred arrival time"
-              hint="We can&rsquo;t guarantee an exact time, but we&rsquo;ll do our best to see you within your preferred window. No new repairs are started after 1.30pm.">
-              <ChipGroup single options={TIME_SLOTS} value={form.preferred_time} onChange={set('preferred_time')} />
-            </Field>
+
+            {form.session_date && (
+              <Field label="Choose an appointment time" hint="Each appointment is half an hour. No new repairs are started after 1.30pm.">
+                {slotsTaken === null ? (
+                  <div style={{ display: 'grid', placeItems: 'center', padding: 20 }}><Spinner /></div>
+                ) : (
+                  <div className="slot-grid">
+                    {TIME_SLOTS.map((t) => {
+                      const taken = takenFor(slotsTaken, form.session_date, t)
+                      const left = Math.max(SLOT_CAPACITY - taken, 0)
+                      const full = left === 0
+                      return (
+                        <button type="button" key={t} disabled={full}
+                          className={`slot ${form.preferred_time === t ? 'on' : ''}`}
+                          onClick={() => set('preferred_time')(t)}>
+                          <div className="sl-time">{t}</div>
+                          <div className={`sl-avail ${!full && left === 1 ? 'low' : ''}`}>
+                            {full ? 'Fully booked' : left === 1 ? 'Last spot available' : `${left} spots available`}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </Field>
+            )}
+
             <Field label="Feedback on this form" hint="Optional — any comments or suggestions help us improve.">
               <textarea className="textarea" value={form.form_feedback} onChange={setInput('form_feedback')} />
             </Field>

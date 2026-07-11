@@ -29,6 +29,30 @@ export function upcomingSessionDates(count = 6) {
   return out
 }
 
+// Bookings close at 6pm on the Wednesday before each session.
+export function bookingCutoff(sessionDate) {
+  const d = new Date(`${sessionDate}T00:00:00`)
+  d.setDate(d.getDate() - 3)
+  d.setHours(18, 0, 0, 0)
+  return d
+}
+
+// Sessions a visitor can still book into (cutoff not yet passed).
+export function bookableSessionDates(count = 4) {
+  const now = new Date()
+  const out = []
+  let y = now.getFullYear()
+  let m = now.getMonth()
+  while (out.length < count) {
+    const sat = secondSaturdayOf(y, m)
+    const iso = toISODate(sat)
+    if (now < bookingCutoff(iso)) out.push(iso)
+    m += 1
+    if (m > 11) { m = 0; y += 1 }
+  }
+  return out
+}
+
 export function formatSessionDate(iso) {
   if (!iso) return ''
   const d = new Date(`${iso}T00:00:00`)

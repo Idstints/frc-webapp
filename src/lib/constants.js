@@ -43,6 +43,9 @@ export const TIME_SLOTS = [
   '1.00 – 1.30',
 ]
 
+// Concurrent appointments per half-hour slot (several repairers work in parallel).
+export const SLOT_CAPACITY = 3
+
 export const CONTACT_METHODS = ['Email', 'SMS message', 'Phone call']
 
 export const AVAILABILITY_OPTIONS = ['Yes', 'No', 'Maybe, with more information']

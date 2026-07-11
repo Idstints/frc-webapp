@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext'
 import { Splash, BrandLogo, BrandMarkFallback, initialsOf } from './components/ui'
 import AuthPage from './pages/AuthPage'
 import RoleSelectPage from './pages/RoleSelectPage'
+import PendingApprovalPage from './pages/PendingApprovalPage'
 import VisitorHome from './pages/visitor/VisitorHome'
 import BookingWizard from './pages/visitor/BookingWizard'
 import VolunteerApplyPage from './pages/visitor/VolunteerApplyPage'
@@ -41,6 +42,14 @@ export default function App() {
   if (loading) return <Splash />
   if (!session) return <AuthPage />
   if (!profile || !profile.role) return <RoleSelectPage />
+  if (profile.role === 'volunteer' && !profile.approved) {
+    return (
+      <>
+        <TopBar />
+        <PendingApprovalPage />
+      </>
+    )
+  }
 
   return (
     <>

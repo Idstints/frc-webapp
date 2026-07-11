@@ -106,7 +106,7 @@ export default function AuthPage() {
                     </button>
                     <button type="button" className={`opt-card ${role === 'volunteer' ? 'on' : ''}`} onClick={() => setRole('volunteer')}>
                       <span className="oc-icon"><IconWrench /></span>
-                      <span><span className="oc-title">Volunteer</span><div className="oc-sub">I&rsquo;m part of the repair team</div></span>
+                      <span><span className="oc-title">Volunteer</span><div className="oc-sub">I&rsquo;m part of the repair team — accounts are activated after review by a coordinator</div></span>
                     </button>
                   </div>
                 </Field>

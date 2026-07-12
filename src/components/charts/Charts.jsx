@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /* Lightweight SVG charts following the house dataviz specs:
    thin marks (bars ≤ 24px, 4px rounded data-end, square baseline), 2px lines,
@@ -17,6 +17,23 @@ function useTooltip() {
   }
   const hide = () => setTip(null)
   return { wrapRef, tip, show, hide }
+}
+
+// Charts size their SVG viewBox to the actual container width so text renders
+// at true pixel size on any screen (phones included) instead of scaling down.
+function useMeasuredWidth(ref, fallback) {
+  const [w, setW] = useState(fallback)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver((entries) => {
+      const cw = entries[0]?.contentRect?.width
+      if (cw > 0) setW(Math.round(cw))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref])
+  return Math.max(w, 280)
 }
 
 function Tooltip({ tip }) {
@@ -46,13 +63,15 @@ function barPath(x, y, w, h, r) {
 
 export function HBarChart({ data, color = '#2a78d6', valueSuffix = '', maxBars = 8 }) {
   const { wrapRef, tip, show, hide } = useTooltip()
+  const width = useMeasuredWidth(wrapRef, 460)
   const rows = data.slice(0, maxBars)
   if (!rows.length) return <div className="empty" style={{ padding: 24 }}>No data yet</div>
 
+  const narrow = width < 420
   const barH = 20
   const gap = 12
-  const labelW = 150
-  const width = 460
+  const labelW = narrow ? 108 : 150
+  const maxName = narrow ? 15 : 23
   const valueW = 44
   const height = rows.length * (barH + gap) - gap + 8
   const max = Math.max(...rows.map((d) => d.value), 1)
@@ -64,7 +83,7 @@ export function HBarChart({ data, color = '#2a78d6', valueSuffix = '', maxBars =
         {rows.map((d, i) => {
           const y = i * (barH + gap) + 4
           const w = Math.max((d.value / max) * plotW, 2)
-          const name = d.label.length > 23 ? `${d.label.slice(0, 22)}…` : d.label
+          const name = d.label.length > maxName ? `${d.label.slice(0, maxName - 1)}…` : d.label
           return (
             <g
               key={d.label}
@@ -173,10 +192,10 @@ export function DonutChart({ data }) {
 export function LineChart({ data, color = '#2a78d6', yLabel = '' }) {
   const { wrapRef, tip, show, hide } = useTooltip()
   const [hover, setHover] = useState(null)
+  const width = useMeasuredWidth(wrapRef, 720)
   if (data.length < 2) return <div className="empty" style={{ padding: 24 }}>Not enough data yet — check back after a couple of sessions</div>
 
-  const width = 720
-  const height = 230
+  const height = width < 480 ? 200 : 230
   const pad = { l: 34, r: 16, t: 12, b: 26 }
   const plotW = width - pad.l - pad.r
   const plotH = height - pad.t - pad.b
@@ -188,7 +207,8 @@ export function LineChart({ data, color = '#2a78d6', yLabel = '' }) {
 
   const linePath = data.map((d, i) => `${i ? 'L' : 'M'}${x(i)},${y(d.value)}`).join(' ')
   const areaPath = `${linePath} L${x(data.length - 1)},${y(0)} L${x(0)},${y(0)} z`
-  const labelEvery = Math.ceil(data.length / 8)
+  const maxXLabels = width < 480 ? 4 : 8
+  const labelEvery = Math.ceil(data.length / maxXLabels)
 
   const onMove = (e) => {
     const box = wrapRef.current?.getBoundingClientRect()

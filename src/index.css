@@ -257,8 +257,8 @@ svg.ic { width: 17px; height: 17px; flex: none; }
 .repair-card { padding: 16px 18px; cursor: pointer; transition: border-color 0.14s, box-shadow 0.14s; }
 .repair-card:hover { border-color: var(--green-500); box-shadow: var(--shadow-md); }
 .rc-top { display: flex; align-items: flex-start; gap: 13px; }
-.rc-title { font-weight: 650; font-size: 14.5px; }
-.rc-meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.rc-title { font-weight: 650; font-size: 14.5px; overflow-wrap: anywhere; }
+.rc-meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; display: flex; gap: 7px; flex-wrap: wrap; align-items: center; overflow-wrap: anywhere; }
 .rc-meta .dot::before { content: '·'; margin-right: 7px; }
 .rc-right { margin-left: auto; text-align: right; flex: none; }
 
@@ -456,7 +456,7 @@ svg.ic { width: 17px; height: 17px; flex: none; }
   display: flex; flex-direction: column; overflow: hidden;
 }
 .modal-head { display: flex; align-items: flex-start; gap: 12px; padding: 20px 22px 14px; border-bottom: 1px solid var(--line-soft); }
-.modal-head h3 { font-size: 16px; }
+.modal-head h3 { font-size: 16px; overflow-wrap: anywhere; }
 .modal-head .m-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .modal-x {
   margin-left: auto; border: none; background: var(--surface-2); color: var(--ink-2);
@@ -581,4 +581,12 @@ svg.ic { width: 17px; height: 17px; flex: none; }
   .repairer-card .r-skills { max-width: 100%; justify-content: flex-start; }
   .brand-sub { display: none; }
   .brand-logo { height: 36px; }
+  .brand-name { font-size: 14px; }
+}
+@media (max-width: 520px) {
+  .brand-name { display: none; }
+  .user-chip .who { display: none; }
+  .tabbar button { font-size: 12.5px; padding: 10px 4px; }
+  .modal-foot { justify-content: stretch; }
+  .modal-foot .btn { flex: 1; }
 }

@@ -33,17 +33,32 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
   const patch = async (fields) => {
     setSaving(true)
     setError('')
+    // only apply if the record hasn't moved on since we loaded it — protects
+    // against two people acting on the same repair at once
     const { data, error: err } = await supabase
       .from('repair_requests')
       .update(fields)
       .eq('id', repair.id)
+      .eq('status', repair.status)
       .select()
-      .single()
-    setSaving(false)
+      .maybeSingle()
     if (err) {
+      setSaving(false)
       setError(err.message)
       return null
     }
+    if (!data) {
+      const { data: fresh } = await supabase
+        .from('repair_requests')
+        .select('*')
+        .eq('id', repair.id)
+        .maybeSingle()
+      setSaving(false)
+      if (fresh) onUpdated?.(fresh)
+      setError('This repair was just updated by someone else — the details shown are now the latest.')
+      return null
+    }
+    setSaving(false)
     onUpdated?.(data)
     return data
   }

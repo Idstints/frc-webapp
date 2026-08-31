@@ -7,6 +7,9 @@ job allocation and status tracking, and a reporting/analytics dashboard.
 
 **Live site:** https://footscray-repair-cafe.netlify.app
 
+**Setting up a server?** See [RUNTIME.md](RUNTIME.md) for the processes, ports, configuration
+and trust model.
+
 ## What's in it
 
 **Visitors** (people with broken things):

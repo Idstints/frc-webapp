@@ -59,16 +59,29 @@ Caddy resolves this by putting both behind one port:
 ```
 :8080 {
   @api path /auth/* /rest/* /storage/* /realtime/* /functions/* /graphql/*
-  reverse_proxy @api {$SUPABASE_UPSTREAM:localhost:54321}
+  handle @api {
+    reverse_proxy {$SUPABASE_UPSTREAM:localhost:54321}
+  }
 
-  root * /srv/dist          # dist/ is bind-mounted into the container
-  try_files {path} /index.html
-  file_server
+  handle {
+    root * /srv/dist        # dist/ is bind-mounted into the container
+    try_files {path} /index.html
+    file_server
+  }
 }
 ```
 
-`try_files … /index.html` is not optional — the app uses client-side routing, so a visitor
-opening `/ticket` directly gets a 404 without it. This replaces the SPA redirect rule in
+Two details, both load-bearing:
+
+**The `handle` blocks are not decoration.** Written as loose directives instead, Caddy sorts
+them into its own standard order, which runs `try_files` *before* `reverse_proxy`. Every API
+path would be rewritten to `/index.html`, stop matching `@api`, and be answered with the HTML
+page — so the app would load and then fail every database call. `handle` blocks are mutually
+exclusive and evaluated in written order, which is what prevents that. This was caught by
+testing, not by reading.
+
+**`try_files … /index.html` is equally not optional** — the app uses client-side routing, so a
+visitor opening `/ticket` directly gets a 404 without it. It replaces the SPA redirect rule in
 `netlify.toml`.
 
 ## Configuration

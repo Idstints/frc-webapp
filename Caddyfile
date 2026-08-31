@@ -6,7 +6,6 @@
 #
 # Runs as a container (see docker-compose.yml). Port 8080 is the only port that
 # should ever be exposed to the internet.
-
 {
 	# No automatic HTTPS here — the tunnel terminates TLS in front of us.
 	auto_https off
@@ -14,31 +13,42 @@
 }
 
 :8080 {
+	# The two handle blocks below are mutually exclusive and are evaluated in
+	# the order written. That ordering is the whole point and must not be
+	# flattened back into bare directives: Caddy sorts loose directives into
+	# its own standard order, which runs try_files BEFORE reverse_proxy. The
+	# API paths would then be rewritten to /index.html, stop matching @api,
+	# and every database call would be answered with the HTML page instead.
+	# Verified by testing - do not "simplify" this.
+
 	# --- API: everything Supabase serves, forwarded to the local gateway ---
-	# In Docker the gateway is on the host, so compose sets SUPABASE_UPSTREAM to
-	# host.docker.internal:54321. The default covers running Caddy natively.
+	# In Docker the gateway is on the host, so compose sets SUPABASE_UPSTREAM
+	# to host.docker.internal:54321. The default covers running Caddy natively.
 	@api path /auth/* /rest/* /storage/* /realtime/* /functions/* /graphql/*
-	reverse_proxy @api {$SUPABASE_UPSTREAM:localhost:54321} {
-		# Visitors' real IP, so the ticket rate limiter blocks the right person
-		# rather than counting every attempt against this proxy.
-		header_up X-Forwarded-For {remote_host}
+	handle @api {
+		# Caddy sets X-Forwarded-For itself, which is what lets the ticket rate
+		# limiter block the right person rather than counting every attempt
+		# against this proxy.
+		reverse_proxy {$SUPABASE_UPSTREAM:localhost:54321}
 	}
 
 	# --- App: the compiled front end ---
-	root * /srv/dist
-	encode gzip
+	handle {
+		root * {$FRC_WEBROOT:/srv/dist}
+		encode gzip
 
-	# Hashed asset filenames never change contents, so cache them hard.
-	@assets path /assets/*
-	header @assets Cache-Control "public, max-age=31536000, immutable"
+		# Hashed asset filenames never change contents, so cache them hard.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
 
-	# index.html must not be cached, or a new build never reaches anyone.
-	header /index.html Cache-Control "no-cache"
+		# index.html must not be cached, or a new build never reaches anyone.
+		header /index.html Cache-Control "no-cache"
 
-	# Client-side routing: unknown paths are app routes, not 404s.
-	# This replaces the SPA redirect that netlify.toml used to provide.
-	try_files {path} /index.html
-	file_server
+		# Client-side routing: unknown paths are app routes, not 404s.
+		# This replaces the SPA redirect that netlify.toml used to provide.
+		try_files {path} /index.html
+		file_server
+	}
 
 	log {
 		output file /var/log/caddy/access.log {

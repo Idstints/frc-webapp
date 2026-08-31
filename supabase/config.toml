@@ -1,0 +1,59 @@
+# Footscray Repair Cafe — local Supabase stack (self-hosted on the MacBook).
+# Cloud reference: project eodprzymrvhdjhttqpos, Postgres 17.6.
+# Secrets come from supabase/.env — never commit that file.
+
+project_id = "frc-local"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17            # matches the cloud project (17.6)
+
+[studio]
+enabled = true
+port = 54323                  # admin UI — keep this OFF the public tunnel
+
+[inbucket]
+enabled = true
+port = 54324                  # catches outbound mail locally; the app sends none today
+
+[storage]
+enabled = true
+file_size_limit = "5MiB"      # matches the repair-photos bucket limit
+
+[auth]
+enabled = true
+# Public HTTPS origin served through the tunnel. Google OAuth and the visitor
+# magic-link flow both build redirect URLs from this, so it must be the real
+# public address, not localhost.
+site_url = "env(FRC_SITE_URL)"
+additional_redirect_urls = ["env(FRC_SITE_URL)", "http://localhost:5173"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+# Visitors never receive mail: the ticket flow mints a session server-side via
+# generateLink + verifyOtp. Leaving confirmations on would strand every signup.
+enable_confirmations = false
+
+[auth.external.google]
+enabled = true
+client_id = "env(FRC_GOOGLE_CLIENT_ID)"
+secret = "env(FRC_GOOGLE_SECRET)"
+
+[realtime]
+enabled = true                # repair_messages is in the supabase_realtime publication
+
+[functions.visitor-access]
+# Visitors are signed out when they enter a ticket, so this endpoint must be
+# reachable without a JWT. It does its own rate limiting via ticket_attempts.
+verify_jwt = false

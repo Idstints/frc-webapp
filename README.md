@@ -104,7 +104,18 @@ When it finishes, the site is at **http://localhost:8080** with an empty databas
 
 ## 3. After installing
 
-**Check it works.** Open <http://localhost:8080>. You should see the Repair Cafe home page.
+**Check it works.** Run the acceptance test:
+
+```bash
+./scripts/smoke-test.sh
+```
+
+It checks about 25 things end to end — that API requests reach the database rather than being
+answered with the HTML page, that row-level security is on for every table, that the ticket
+endpoint is deployed, that the built JavaScript contains the right address. It exits non-zero if
+anything fails, so it is also the thing to run before a cafe day.
+
+Then open <http://localhost:8080>. You should see the Repair Cafe home page.
 
 **Create your account** in the app — use the normal sign-up.
 
@@ -249,6 +260,7 @@ fails with `redirect_uri_mismatch`.
 |---|---|
 | `./scripts/start.sh` | Bring everything up |
 | `./scripts/stop.sh` | Shut down — records are kept |
+| `./scripts/smoke-test.sh` | Check the whole install actually works |
 | `./scripts/backup.sh` | Back up every record, and verify the backup |
 | `./scripts/build.sh` | Recompile the website after a code change |
 | `./scripts/set-public-url.sh` | Show how to get online, or set the address |

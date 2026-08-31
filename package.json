@@ -13,7 +13,8 @@
     "stop": "./scripts/stop.sh",
     "backup": "./scripts/backup.sh",
     "logs": "docker compose logs -f web",
-    "status": "supabase status && docker compose ps"
+    "status": "supabase status && docker compose ps",
+    "test": "./scripts/smoke-test.sh"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",

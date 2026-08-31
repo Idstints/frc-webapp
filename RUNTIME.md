@@ -120,10 +120,16 @@ The parts that are load-bearing for privacy, in rough order of how bad it is to 
 
 ## Requirements
 
-Two installs, both via Homebrew:
+Two installs, both handled by `scripts/install-prereqs.sh`:
 
-- **Docker Desktop** — runs everything; give it ~4 GB of RAM
+- **Docker** — runs everything; give it ~4 GB of RAM
 - **Supabase CLI** — applies migrations, supervises the stack
+
+The deployment target is **Linux Mint** (running on a MacBook). Windows and macOS work for
+testing; only Linux gets boot-time autostart via systemd. On Linux the installer uses Docker's
+own apt repository rather than Mint's `docker.io` package, which is older and ships no Compose v2
+plugin — and it resolves the repo codename from `UBUNTU_CODENAME`, because Mint's own
+`VERSION_CODENAME` ("wilma", "xia") means nothing to Docker's servers.
 
 Node and Caddy are **not** required on the host. Caddy runs as a container, and
 `scripts/build.sh` falls back to a `node:24-alpine` container when Node isn't installed.

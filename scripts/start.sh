@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 # Bring the whole system up, in the order it needs.
 #
-# Supabase first (Caddy proxies to it), then the web container. Both are
-# idempotent — running this when it's already up just reports that.
+# Supabase first, because Caddy proxies to it. Both halves are idempotent —
+# running this when it's already up just reports that.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
+. scripts/lib.sh
 
-say() { printf '\n\033[1;32m==>\033[0m %s\n' "$1"; }
-
-docker info >/dev/null 2>&1 || {
-  echo "Docker isn't running. Open Docker Desktop first." >&2; exit 1; }
+frc_require_docker
+frc_require_supabase
 
 say "Supabase stack"
 supabase start
@@ -18,14 +17,21 @@ supabase start
 say "Web server"
 docker compose up -d web
 
-SITE_URL="$(sed -n 's/^VITE_SUPABASE_URL=//p' .env 2>/dev/null | head -1)"
-say "Up — ${SITE_URL:-http://localhost:8080}"
+SITE_URL="$(frc_env_get .env VITE_SUPABASE_URL)"
+SITE_URL="${SITE_URL:-http://localhost:8080}"
 
-# A 200 here means Caddy is serving the app; a 000 means it isn't listening yet.
+# Give Caddy a moment to bind before deciding whether it worked.
 sleep 2
-CODE="$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/ || echo 000)"
+CODE="$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/ 2>/dev/null || echo 000)"
+
 if [ "$CODE" = "200" ]; then
-  echo "  app responding (HTTP 200)"
+  say "Up — $SITE_URL"
+  case "$SITE_URL" in
+    http://localhost*) info "Local only. ./scripts/set-public-url.sh to go online." ;;
+    *) info "Reachable publicly only while the tunnel is running." ;;
+  esac
 else
-  echo "  app not responding yet (HTTP $CODE) — check: docker compose logs web"
+  warn "The app isn't responding yet (HTTP $CODE)."
+  info "Give it a few seconds and reload, or look at the log:"
+  info "  docker compose logs web"
 fi

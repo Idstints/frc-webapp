@@ -3,101 +3,106 @@
 #
 #   ./scripts/bootstrap.sh
 #
-# Leaves you with the whole system running at http://localhost:8080 and an
-# empty database. Making it reachable from the internet is a separate step:
-# see scripts/set-public-url.sh.
+# Leaves the whole system running at http://localhost:8080 with an empty
+# database. Putting it on the internet is a separate, later step:
+#   ./scripts/set-public-url.sh
+#
+# If Docker or the Supabase CLI are missing, run ./scripts/install-prereqs.sh
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
+. scripts/lib.sh
 
-say()  { printf '\n\033[1;32m==>\033[0m %s\n' "$1"; }
-warn() { printf '\033[1;33m !\033[0m %s\n' "$1"; }
-die()  { printf '\n\033[1;31m✗\033[0m %s\n\n' "$1" >&2; exit 1; }
+say "Checking prerequisites"
+info "System: $(frc_os_name)"
 
-# ---------------------------------------------------------------- checks ----
+[ "$(frc_os)" != unsupported ] || die "Unsupported system: $(uname -s).
+    This runs on Linux (the real target), and on Windows or macOS for testing."
 
-say "Checking what's installed"
+if [ "$(frc_os)" = windows ]; then
+  warn "Windows is for testing only. The Repair Cafe's server runs Linux Mint,"
+  warn "and autostart, backups-on-a-schedule and the tunnel are all Linux there."
+fi
 
-command -v docker >/dev/null 2>&1 || die "Docker isn't installed.
-  Install Docker Desktop:  brew install --cask docker
-  Then open it once so it can finish setting itself up."
+frc_require_docker
+frc_require_supabase
 
-docker info >/dev/null 2>&1 || die "Docker is installed but not running.
-  Open Docker Desktop and wait for the whale icon to settle, then re-run this."
+info "docker    $(docker --version | awk '{print $3}' | tr -d ,)"
+info "compose   $(docker compose version --short 2>/dev/null || echo '?')"
+info "supabase  $(supabase --version 2>/dev/null || echo '?')"
 
-command -v supabase >/dev/null 2>&1 || die "The Supabase CLI isn't installed.
-  Install it:  brew install supabase/tap/supabase"
-
-docker compose version >/dev/null 2>&1 || die "This needs Docker Compose v2.
-  It ships with current Docker Desktop — updating Docker should fix it."
-
-echo "  docker    $(docker --version | awk '{print $3}' | tr -d ,)"
-echo "  supabase  $(supabase --version 2>/dev/null || echo '?')"
-
-# ------------------------------------------------------------ stack env ----
+# ------------------------------------------------------------ stack env -----
 
 if [ ! -f supabase/.env ]; then
   say "Creating supabase/.env"
   cp supabase/.env.example supabase/.env
-  echo "  Defaults to http://localhost:8080. Google sign-in is off until you"
-  echo "  fill in the two Google values — everything else works without it."
+  info "Defaults to http://localhost:8080."
+  info "Google sign-in stays off until you fill in the two Google values —"
+  info "everything else works without it."
 else
   say "supabase/.env already exists — leaving it alone"
 fi
 
-# --------------------------------------------------------------- stack -----
+# --------------------------------------------------------------- stack ------
 
-say "Starting the Supabase stack (first run pulls images — a few minutes)"
+say "Starting the Supabase stack"
+info "First run downloads several GB of images. Go and make a coffee."
 supabase start
 
 say "Building the database from supabase/migrations/"
 if [ "${FRC_KEEP_DATA:-}" = "1" ]; then
   supabase migration up
-  echo "  Applied new migrations only, existing data kept."
+  info "Applied new migrations only; existing data kept."
 else
   supabase db reset
-  echo "  Database rebuilt from scratch. (FRC_KEEP_DATA=1 to apply migrations"
-  echo "  without wiping — use that once real bookings exist.)"
+  info "Database rebuilt from scratch."
+  info "Once real bookings exist, use FRC_KEEP_DATA=1 to avoid wiping them."
 fi
 
-# ------------------------------------------------------------ front end ----
+# ------------------------------------------------------------ front end -----
 
 say "Reading the stack's keys"
 ANON_KEY="$(supabase status -o env 2>/dev/null | sed -n 's/^ANON_KEY="\(.*\)"$/\1/p')"
 [ -n "$ANON_KEY" ] || die "Couldn't read the anon key from 'supabase status'.
-  Run 'supabase status' yourself and copy ANON_KEY into .env by hand."
+    Run 'supabase status' yourself and copy ANON_KEY into .env by hand."
 
-SITE_URL="$(sed -n 's/^FRC_SITE_URL=//p' supabase/.env | head -1)"
+SITE_URL="$(frc_env_get supabase/.env FRC_SITE_URL)"
 SITE_URL="${SITE_URL:-http://localhost:8080}"
 
 say "Writing .env"
 cat > .env <<ENVEOF
-# Written by scripts/bootstrap.sh. Compiled into the build — rerun
-# scripts/build.sh after any change here, or use scripts/set-public-url.sh.
+# Written by scripts/bootstrap.sh.
+# These are COMPILED INTO the build — after changing either, run
+# ./scripts/build.sh, or use ./scripts/set-public-url.sh which does it for you.
 VITE_SUPABASE_URL=$SITE_URL
 VITE_SUPABASE_ANON_KEY=$ANON_KEY
 ENVEOF
-echo "  URL: $SITE_URL"
+info "Address: $SITE_URL"
 
 ./scripts/build.sh
 
-# ----------------------------------------------------------------- web -----
+# ----------------------------------------------------------------- web ------
 
 say "Starting the web server"
 docker compose up -d web
 
-cat <<DONE
+say "Ready — http://localhost:8080"
 
-  Ready.  http://localhost:8080
+cat <<'DONE'
 
-  Next:
-    • Create your account in the app, then make yourself a repairer:
-        ./scripts/make-volunteer.sh you@example.com
-    • Put it on the internet:
-        ./scripts/set-public-url.sh https://your-name.tailXXXX.ts.net
-    • Start it automatically at login:
-        ./scripts/install-autostart.sh
+    Next, in order:
 
-  Day to day:  ./scripts/start.sh   ./scripts/stop.sh   ./scripts/backup.sh
+    1. Open http://localhost:8080 and create your account.
+
+    2. Make yourself a repairer (the first one has nobody to approve them):
+         ./scripts/make-volunteer.sh you@example.com
+
+    3. When you're happy it works, put it on the internet:
+         ./scripts/set-public-url.sh          # prints instructions
+
+    4. Have it start by itself after a reboot:
+         ./scripts/install-autostart.sh
+
+    Day to day:  ./scripts/start.sh  ./scripts/stop.sh  ./scripts/backup.sh
 
 DONE

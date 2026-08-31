@@ -28,7 +28,7 @@ frc_require_docker
 frc_require_supabase
 
 info "docker    $(docker --version | awk '{print $3}' | tr -d ,)"
-info "compose   $(docker compose version --short 2>/dev/null || echo '?')"
+info "compose   $(frc_compose version --short 2>/dev/null || echo '?')"
 info "supabase  $(supabase --version 2>/dev/null || echo '?')"
 
 # ------------------------------------------------------------ stack env -----
@@ -84,7 +84,11 @@ info "Address: $SITE_URL"
 # ----------------------------------------------------------------- web ------
 
 say "Starting the web server"
-docker compose up -d web
+frc_compose up -d web
+
+sleep 2
+say "Checking it actually works"
+frc_check_api || warn "Fix the above before going any further — the app cannot work like this."
 
 say "Ready — http://localhost:8080"
 

@@ -8,7 +8,7 @@ cd "$(dirname "$0")/.."
 frc_require_docker
 
 say "Web server"
-docker compose down
+frc_compose down
 
 say "Supabase stack"
 supabase stop

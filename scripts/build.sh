@@ -20,7 +20,7 @@ if frc_have node && frc_have npm; then
 else
   say "No Node installed — building in a container"
   frc_require_docker
-  docker compose --profile build run --rm build
+  frc_compose --profile build run --rm build
 fi
 
 [ -f dist/index.html ] || die "The build produced no dist/index.html. Something failed above."

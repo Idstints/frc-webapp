@@ -91,6 +91,47 @@ frc_require_supabase() {
     Run ./scripts/install-prereqs.sh to install it."
 }
 
+# Run docker compose with the right overlay for this platform. On Linux the
+# web container needs host networking to reach the Supabase gateway at all -
+# see docker-compose.linux.yml for why.
+frc_compose() {
+  if [ "$(frc_os)" = linux ]; then
+    docker compose -f docker-compose.yml -f docker-compose.linux.yml "$@"
+  else
+    docker compose -f docker-compose.yml "$@"
+  fi
+}
+
+# The single most useful check there is: can a browser actually reach the
+# database through Caddy? A 502 here means the proxy is up but cannot see the
+# Supabase gateway, which is the classic Linux networking failure. Anything
+# 2xx/4xx means the request got through to Supabase, which is what we want.
+# Prints a verdict and returns non-zero if the API is unreachable.
+frc_check_api() {
+  local code
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:8080/rest/v1/ 2>/dev/null || echo 000)"
+  case "$code" in
+    502|000)
+      warn "The API is NOT reachable through the web server (HTTP $code)."
+      info "The site will load and then fail every database call."
+      info ""
+      info "Almost always this is the web container being unable to see the"
+      info "Supabase gateway. Check in this order:"
+      info "  1. Is Supabase up?          supabase status"
+      info "  2. Is the gateway alive?    curl -I localhost:54321/rest/v1/"
+      info "  3. What is the proxy using? docker compose config | grep SUPABASE_UPSTREAM"
+      info ""
+      info "On Linux the fix is host networking, which the scripts apply from"
+      info "docker-compose.linux.yml. If you started the container by hand with"
+      info "a plain 'docker compose up', that overlay was skipped - use"
+      info "./scripts/start.sh instead."
+      return 1 ;;
+    *)
+      info "API reachable through the web server (HTTP $code)"
+      return 0 ;;
+  esac
+}
+
 # The Supabase CLI names its database container after project_id in config.toml.
 frc_db_container() {
   docker ps --filter 'name=supabase_db_' --format '{{.Names}}' 2>/dev/null | head -1

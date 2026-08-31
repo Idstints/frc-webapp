@@ -15,7 +15,7 @@ say "Supabase stack"
 supabase start
 
 say "Web server"
-docker compose up -d web
+frc_compose up -d web
 
 SITE_URL="$(frc_env_get .env VITE_SUPABASE_URL)"
 SITE_URL="${SITE_URL:-http://localhost:8080}"
@@ -26,6 +26,11 @@ CODE="$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/ 2>/dev/nul
 
 if [ "$CODE" = "200" ]; then
   say "Up — $SITE_URL"
+
+  # Serving the page proves nothing about the database. The browser talks to
+  # Supabase directly, so check that path too before declaring success.
+  frc_check_api || true
+
   case "$SITE_URL" in
     http://localhost*) info "Local only. ./scripts/set-public-url.sh to go online." ;;
     *) info "Reachable publicly only while the tunnel is running." ;;

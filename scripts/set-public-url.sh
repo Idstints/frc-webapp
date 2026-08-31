@@ -115,7 +115,7 @@ supabase start
 ./scripts/build.sh
 
 say "Restarting the web server"
-docker compose up -d web
+frc_compose up -d web
 
 say "The site is now $URL"
 

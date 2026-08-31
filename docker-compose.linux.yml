@@ -1,0 +1,28 @@
+# Linux-only overlay. Applied automatically by the scripts on Linux; ignored on
+# Windows and macOS.
+#
+# Why this exists
+# ---------------
+# On Docker Desktop (Windows/macOS) containers reach the host through the magic
+# name host.docker.internal, which works because the whole engine runs in a VM.
+#
+# On Linux there is no VM. A container reaches the host across the docker bridge
+# at an address like 172.17.0.1 — and that only works if the thing it wants is
+# listening on all interfaces. The Supabase CLI publishes its gateway on
+# loopback, so a bridged container cannot reach it at all: the site would load
+# and then every single API call would fail with a 502.
+#
+# Host networking sidesteps the question entirely. Caddy runs in the host's own
+# network namespace, so "localhost:54321" means the same thing to it as it does
+# to the CLI. This is correct whichever interface Supabase binds to, which is
+# why it is the default here rather than a fallback.
+#
+# Trade-off: the container no longer has its own network namespace, so port 8080
+# is taken directly on the host and `ports:` no longer applies. Compose prints a
+# warning saying so. That warning is expected — ignore it.
+
+services:
+  web:
+    network_mode: host
+    environment:
+      SUPABASE_UPSTREAM: localhost:54321

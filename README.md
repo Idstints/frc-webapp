@@ -3,122 +3,188 @@
 A repair-tracking portal for [Footscray Repair Cafe](https://www.footscrayrepaircafe.au) at Angliss
 Neighbourhood House, inspired by the international
 [RepairMonitor](https://www.youtube.com/watch?v=WP24o2FEmvA) system: repair request collection,
-job allocation and status tracking, and a reporting/analytics dashboard.
+job allocation and status tracking, and a reporting dashboard.
 
-**Live site:** https://footscray-repair-cafe.netlify.app
+**This runs on our own hardware.** One Mac hosts the site, the database, sign-in and photo
+storage — no Netlify, no hosted Supabase, no cloud account holding visitors' details. Everything
+below is about getting that Mac serving.
 
-**Setting up a server?** See [RUNTIME.md](RUNTIME.md) for the processes, ports, configuration
-and trust model.
+- [RUNTIME.md](RUNTIME.md) — what runs on which port, and what must never be exposed
+- Setup on a fresh machine — the next section
 
-## What's in it
+## Getting it running
 
-**Visitors** (people with broken things):
+You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) and the Supabase CLI.
+Nothing else — not even Node.
 
-- Sign in with email/password or Google, choosing *Visitor* or *Volunteer* at signup
-- **Book a repair** — a 4-step wizard mirroring the FRC Booking Request Google Form
-  (contact details, item + category, the problem), with **up to three item photos** uploaded to
-  Supabase Storage so repairers can see the item before the session, and a **live appointment
-  picker**: upcoming session Saturdays with half-hour slots showing real-time availability
-  (3 concurrent appointments per slot — change `SLOT_CAPACITY` in `src/lib/constants.js`).
-  Slot counts come from a privacy-preserving database function that exposes only totals,
-  never other visitors' details, and the chosen slot is re-checked at submission
-- **Join the repair team** — the volunteer application form (skills, availability, donations)
-- **My repairs** — every booking with a 4-step progress tracker
-  (*Appointment confirmed → Repairer assigned → Repair in progress → Repair completed*),
-  with search, status filter, and date/name sorting
+```bash
+brew install --cask docker
+brew install supabase/tap/supabase
+```
 
-**Volunteers** (the repair team) get three tabs, with a cafe switcher on top (one cafe today,
-multi-cafe ready):
+Open Docker Desktop once and let it finish setting itself up. Then:
 
-1. **Repair board** — toggle between *Repairs* (every booking, filterable/sortable; open one to
-   confirm the appointment, assign a repairer — or yourself, start, complete, or cancel) and
-   *Repairers* (searchable team roster with specialisation filters)
-2. **My bench** — your volunteer profile (contact, specialisations, stats) plus the repairs
-   assigned to you. Completing a repair asks: who it was done for, your name (auto-filled),
-   what was wrong, what was done, whether the repair was possible, and extra notes
-3. **Insights** — stat tiles (bookings, completions, fix rate, this month, team size), repairs
-   per month, status and outcome breakdowns, category counts, fix rate by category, most common
-   items, and CSV export
+```bash
+git clone https://github.com/Idstints/frc-webapp.git
+cd frc-webapp
+./scripts/bootstrap.sh
+```
 
-## Stack
+That pulls the container images, starts Postgres and the rest of the stack, builds the database
+from `supabase/migrations/`, compiles the front end and starts the web server. First run takes a
+few minutes; after that it's seconds.
 
-- **Frontend:** React 19 + Vite, React Router, hand-rolled SVG charts (no chart library)
-- **Backend:** Supabase — Postgres, Auth, and row-level security (project ref `eodprzymrvhdjhttqpos`, Sydney)
-- **Hosting:** Netlify (site `footscray-repair-cafe`)
+When it finishes the site is at **http://localhost:8080** with an empty database.
+
+Sign up in the app, then make yourself a repairer — the first one has nobody to approve them:
+
+```bash
+./scripts/make-volunteer.sh you@example.com
+```
+
+From then on, approvals happen inside the app (*Repair board → Repairers*).
+
+## Putting it on the internet
+
+`localhost` only works on the Mac itself. To let people book from home you need a tunnel, which
+gives you a public HTTPS address without opening a port on the router.
+
+```bash
+brew install --cask tailscale
+```
+
+Sign in to Tailscale, then expose the one port that should ever be public:
+
+```bash
+sudo tailscale funnel --bg 8080
+```
+
+It prints an address like `https://frc-mac.tailXXXX.ts.net`. Tell the app about it:
+
+```bash
+./scripts/set-public-url.sh https://frc-mac.tailXXXX.ts.net
+```
+
+That script exists because the address lives in two places that must agree, and one of them is
+compiled into the JavaScript. Setting it by hand is the most common way to break sign-in.
+
+> **Why Tailscale rather than Cloudflare.** Funnel hands the encrypted traffic to the Mac and lets
+> it do the decrypting, so visitor names and phone numbers are never readable in transit by anyone
+> else. Cloudflare Tunnel decrypts and re-encrypts on their servers. Both work; only one of them
+> matches the reason we stopped using a cloud database.
+
+## Day to day
+
+| Command | What it does |
+|---|---|
+| `./scripts/start.sh` | Bring everything up |
+| `./scripts/stop.sh` | Shut everything down — records are kept |
+| `./scripts/backup.sh` | Dump every record to `~/frc-backups`, and verify the dump |
+| `./scripts/build.sh` | Recompile the front end after a code change |
+| `./scripts/install-autostart.sh` | Start automatically at login |
+| `npm run status` | What's running |
+| `npm run logs` | Follow the web server log |
+
+### Keeping it up
+
+A laptop that sleeps is a website that's down. `./scripts/install-autostart.sh` sets up a login
+agent that waits for Docker and starts everything, and tells you the two things it deliberately
+won't do for you: disable sleep, and enable automatic login.
+
+### Backups
+
+Nobody else is doing this now.
+
+```bash
+./scripts/backup.sh /Volumes/YourBackupDrive
+```
+
+Run it after every cafe day, to a drive that is not this Mac. The script refuses to report success
+on a dump it can't read back, but that is not the same as a tested restore — do one of those,
+once, before you rely on any of it.
+
+## What's in the app
+
+**Visitors** — people with broken things:
+
+- **A ticket instead of an account.** A visitor gets an eight-character number like `482137-KM`:
+  six digits identify them, two letters identify the item. Entering it opens their record. No
+  password, no email confirmation. Lost the card? Name plus two other matching details also works.
+- **Book a repair** — a four-step wizard mirroring the paper form: contact details, item and
+  category, the problem, then a live slot picker for upcoming session Saturdays (half-hour slots,
+  three repairs each, availability counted without revealing anyone else's booking). Up to three
+  photos per item so repairers can see it beforehand.
+- **Follow the job** — a progress tracker from *appointment confirmed* through to *completed*,
+  and a message thread with the team that carries across repeat visits for the same item.
+
+**Volunteers** — the repair team, in three tabs:
+
+1. **Repair board** — every booking, filterable and sortable; open one to confirm, assign a
+   repairer, start, complete or cancel. Also the team roster, where new repairers are approved.
+2. **My bench** — your profile and the repairs assigned to you. Completing one records what was
+   wrong, what was done, and the outcome.
+3. **Insights** — bookings, completions, fix rate, repairs per month, category breakdowns, most
+   common items, and CSV export.
+
+New volunteer accounts start unapproved and see nothing until an existing repairer approves them —
+row-level security hides all visitor data from them until then.
 
 ### Database
 
 | Table | Purpose |
 |---|---|
-| `cafes` | One row per repair cafe (future multi-cafe support) |
-| `profiles` | One per user, created by a trigger on signup; `role` is `visitor` or `volunteer`, volunteers carry `skills[]` |
-| `repair_requests` | The whole booking-form payload + workflow state (`pending → confirmed → assigned → in_progress → completed`, or `cancelled`), timestamps per step, and the repairer's outcome (`fixed`, `partially_fixed`, `advice_given`, `not_repairable`) |
-| `volunteer_applications` | Submissions from the "Join the team" form |
+| `cafes` | One row per repair cafe (multi-cafe ready) |
+| `profiles` | One per person; `role` is `visitor` or `volunteer`, and `person_code` is the six-digit half of their ticket |
+| `repair_requests` | The booking, the workflow state, and the repairer's outcome. `job_code` is the full ticket; repeat visits for one item share it |
+| `repair_messages` | The conversation, threaded on `job_code` |
+| `volunteer_applications` | "Join the team" submissions |
+| `ticket_attempts` | Rate limiting for ticket entry |
 
-Row-level security: visitors can only see/create their own repairs and applications; approved
-volunteers (via the `is_volunteer()` helper) can see and manage everything.
+The schema lives in `supabase/migrations/` and is the source of truth — `supabase db reset`
+rebuilds the whole database from it. Never change the database by hand; add a migration.
 
-**Volunteer approval gate:** anyone can sign up as a volunteer, but the account starts
-unapproved — they see a "pending review" screen and row-level security hides all repair and
-visitor data from them until approved. Current team members approve or decline new volunteers
-from the *Repair board → Repairers* view (declining converts the account to a visitor account).
-Approvals go through the `set_volunteer_approval()` database function, so team members can
-never edit other fields of someone else's profile.
-
-## Demo accounts
-
-| Role | Email | Password |
-|---|---|---|
-| Volunteer | `volunteer@frc.demo` | `Demo1234!` |
-| Visitor | `visitor@frc.demo` | `Demo1234!` |
-
-The database is seeded with 6 volunteers, 6 visitors, and ~36 repairs across eight months of
-sessions so the board and analytics have life in them.
-
-## Branding
-
-The site logo lives at `public/logo.png` (currently extracted from the FRC email signature).
-Replace that file with a higher-resolution transparent PNG to update the logo everywhere — the
-top bar and the sign-in page both read from it, and fall back to a wordmark tile if it's missing.
-
-## Local development
+## Changing the app
 
 ```bash
-npm install
-npm run dev        # http://localhost:5173
-npm run build      # production build to dist/
+# edit src/…
+./scripts/build.sh
 ```
 
-Copy `.env.example` to `.env` and fill in the Supabase URL and publishable key
-(Supabase dashboard → Project Settings → API Keys).
+The browser picks it up on refresh. For faster iteration, `npm run dev` on
+<http://localhost:5173> talks to the same stack with hot reload (needs Node installed).
 
-## Deploying
+Schema changes go through a migration, never the admin console:
 
-Netlify builds with `npm run build` and publishes `dist/` (see `netlify.toml`, which also has the
-SPA redirect). `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are set as Netlify build env vars.
-Redeploy from the repo directory with the Netlify CLI/MCP, or connect the repo to Netlify for
-deploys on push.
+```bash
+supabase migration new describe_the_change
+# write the SQL in the file it creates
+supabase migration up
+```
 
-## One-time Supabase dashboard setup (not scriptable via API)
+## When something's wrong
 
-In the [Supabase dashboard](https://supabase.com/dashboard/project/eodprzymrvhdjhttqpos):
+| Symptom | Cause |
+|---|---|
+| Nothing loads at all | Docker Desktop isn't running |
+| Site loads, sign-in fails | `VITE_SUPABASE_URL` and `FRC_SITE_URL` disagree — re-run `set-public-url.sh` |
+| Changed `.env`, nothing happened | It's compiled in. Run `./scripts/build.sh` |
+| `redirect_uri_mismatch` on Google | The public URL isn't in the Google OAuth client's redirect list |
+| Works locally, not from outside | The tunnel isn't running: `sudo tailscale funnel --bg 8080` |
+| Reachable but wrong page on refresh | Caddy isn't serving `index.html` for unknown paths |
 
-1. **Auth → URL Configuration** — set *Site URL* to `https://footscray-repair-cafe.netlify.app`
-   and add it to *Redirect URLs* (plus `http://localhost:5173` for local dev). Without this,
-   confirmation-email links and OAuth redirects point at localhost.
-2. **Auth → Sign In / Up → Email** — "Confirm email" is currently **on**: new signups must click
-   an emailed link before they can sign in. Either turn it off (fine for a community pilot) or set
-   up custom SMTP (Auth → Emails) — the built-in mailer only sends ~2 emails/hour, which will
-   rate-limit signups.
-3. **Auth → Sign In / Up → Google** — to enable "Continue with Google", add OAuth credentials from
-   Google Cloud Console with redirect URI
-   `https://eodprzymrvhdjhttqpos.supabase.co/auth/v1/callback`. Until then the button returns an
-   error and email/password works fine.
-4. **Auth → Passwords** *(recommended)* — enable leaked-password protection.
+`npm run logs` and `~/Library/Logs/frc-autostart.log` are where the answers usually are.
 
-## Ideas for later
+## The cloud fallback
 
-- Email/SMS notifications on confirmation and completion (Supabase Edge Function + Resend/Twilio)
-- A host/admin role for triaging volunteer applications from inside the app
-- Weight-based landfill-diversion estimates per category on the Insights tab
-- More cafes: add rows to `cafes` and the switcher in the header is already wired
+The original hosted setup (Netlify plus Supabase cloud) still exists and is kept until this one
+has run a few cafe days without incident. `netlify.toml` is retained for that reason only and does
+nothing here. Retiring it is a decision, not an oversight — make it deliberately.
+
+## Known gaps
+
+- **Nothing sends email or SMS.** Not a configuration problem: it was never built. Visitors aren't
+  told when a booking is confirmed, and nobody is notified of a message. Someone has to open the
+  app to see it.
+- **One repair per person per month isn't enforced**, and walk-ins can't be logged by volunteers.
+- **The Mac is a single point of failure.** One disk, one machine, one power outlet. Backups are
+  the whole of the mitigation.

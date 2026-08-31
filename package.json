@@ -7,7 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "bootstrap": "./scripts/bootstrap.sh",
+    "start": "./scripts/start.sh",
+    "stop": "./scripts/stop.sh",
+    "backup": "./scripts/backup.sh",
+    "logs": "docker compose logs -f web",
+    "status": "supabase status && docker compose ps"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",

@@ -26,3 +26,9 @@ dist-ssr
 .env
 
 .netlify
+
+# Caddy access logs (container writes to a volume; this covers native runs)
+logs/
+
+# sed -i backups from the scripts
+*.bak

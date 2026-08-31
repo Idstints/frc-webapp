@@ -46,7 +46,11 @@ enable_signup = true
 enable_confirmations = false
 
 [auth.external.google]
-enabled = true
+# Off by default so a fresh clone starts with no Google account set up.
+# Email/password sign-in and the visitor ticket flow both work without it.
+# To enable: set the two vars in supabase/.env, flip this to true, add
+# <public-url>/auth/v1/callback to your Google Cloud OAuth client, restart.
+enabled = false
 client_id = "env(FRC_GOOGLE_CLIENT_ID)"
 secret = "env(FRC_GOOGLE_SECRET)"
 

@@ -1,0 +1,56 @@
+# Footscray Repair Cafe — the services we own.
+#
+# Supabase's own containers (Postgres, auth, storage, realtime, the edge
+# runtime) are managed by the Supabase CLI rather than declared here, because
+# the CLI also owns migrations and keeps the service versions consistent with
+# one another. This file covers the two things the CLI does not provide: the
+# web server that fronts everything, and a reproducible build.
+#
+#   scripts/start.sh   brings up both halves in the right order
+#   scripts/build.sh   compiles the front end into dist/
+
+name: frc
+
+services:
+  # The only container that should ever be reachable from the internet.
+  web:
+    image: caddy:2-alpine
+    container_name: frc-web
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Supabase's gateway is published on the host by the CLI, not inside this
+      # compose network, so we reach back out to the host to find it.
+      SUPABASE_UPSTREAM: host.docker.internal:54321
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./dist:/srv/dist:ro
+      - caddy-logs:/var/log/caddy
+      - caddy-data:/data
+    extra_hosts:
+      # Linux needs this spelled out; Docker Desktop on macOS provides it.
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/index.html"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # One-shot build, so nobody needs Node installed on the Mac.
+  # Invoked by scripts/build.sh, which prefers host Node when it is available
+  # because a bind-mounted npm install is slow on macOS.
+  build:
+    image: node:24-alpine
+    profiles: ["build"]
+    working_dir: /app
+    volumes:
+      - .:/app
+      - build-node-modules:/app/node_modules
+    command: sh -c "npm install --no-audit --no-fund && npm run build"
+
+volumes:
+  caddy-logs:
+  caddy-data:
+  build-node-modules:

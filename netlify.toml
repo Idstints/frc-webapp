@@ -1,3 +1,9 @@
+# DORMANT — the Repair Cafe now self-hosts on the MacBook. See README.md.
+#
+# This file only does anything if someone deliberately deploys to Netlify. It is
+# kept so the cloud fallback can be brought back quickly if the Mac is down on a
+# cafe day; Caddyfile is the equivalent config for the real setup.
+
 [build]
   command = "npm run build"
   publish = "dist"

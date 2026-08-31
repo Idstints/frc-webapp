@@ -21,12 +21,17 @@ browser ──HTTPS──> reverse proxy ─┬─> static files (dist/)
 
 ## Services and ports
 
-Started and supervised by the Supabase CLI (`supabase start`), which runs each as a Docker
-container. Ports are the defaults set in [`supabase/config.toml`](supabase/config.toml).
+Everything runs in Docker. Two supervisors, deliberately: the Supabase CLI owns its own
+containers (it also owns migrations, and keeps the service versions consistent with each
+other), while [`docker-compose.yml`](docker-compose.yml) owns the web server we put in
+front. Ports are the defaults set in [`supabase/config.toml`](supabase/config.toml).
+
+`scripts/start.sh` brings both halves up in the right order — Supabase first, since Caddy
+proxies to it.
 
 | Port | Service | Role | Public? |
 |------|---------|------|---------|
-| 8080 | Caddy (ours) | Serves `dist/`, proxies API paths | **Yes** — the only port on the tunnel |
+| 8080 | Caddy container | Serves `dist/`, proxies API paths | **Yes** — the only port on the tunnel |
 | 54321 | Kong gateway | Front door to all Supabase services | Via proxy only |
 | 54322 | Postgres 17 | Every record | **Never** |
 | 54323 | Studio | Admin console, *no authentication* | **Never** |
@@ -54,9 +59,9 @@ Caddy resolves this by putting both behind one port:
 ```
 :8080 {
   @api path /auth/* /rest/* /storage/* /realtime/* /functions/* /graphql/*
-  reverse_proxy @api localhost:54321
+  reverse_proxy @api {$SUPABASE_UPSTREAM:localhost:54321}
 
-  root * ./dist
+  root * /srv/dist          # dist/ is bind-mounted into the container
   try_files {path} /index.html
   file_server
 }
@@ -115,20 +120,40 @@ The parts that are load-bearing for privacy, in rough order of how bad it is to 
 
 ## Requirements
 
-- **Docker** — the whole stack; needs ~4 GB of RAM available
-- **Node 20+** — built and tested on 24.13.0
-- **Supabase CLI** — applies migrations, supervises containers
-- **Caddy** — static serving and reverse proxy
-- Apple Silicon and Intel both fine; all images are multi-arch
+Two installs, both via Homebrew:
+
+- **Docker Desktop** — runs everything; give it ~4 GB of RAM
+- **Supabase CLI** — applies migrations, supervises the stack
+
+Node and Caddy are **not** required on the host. Caddy runs as a container, and
+`scripts/build.sh` falls back to a `node:24-alpine` container when Node isn't installed.
+If Node *is* present it is used instead, because a bind-mounted `npm install` is slow on
+macOS.
+
+Apple Silicon and Intel both work; all images are multi-arch.
+
+### Container networking
+
+The Supabase CLI publishes its gateway on the **host**, not inside the compose network, so
+the Caddy container reaches it at `host.docker.internal:54321` (set as
+`SUPABASE_UPSTREAM` in `docker-compose.yml`). The Caddyfile falls back to
+`localhost:54321` when that variable is absent, so running Caddy natively also works.
 
 ## Running it
 
 ```bash
-npm install
-supabase start          # boots the stack, prints the anon and service-role keys
-supabase db reset       # applies supabase/migrations/ in order — rebuilds the schema from scratch
-npm run build           # compiles to dist/, baking in .env
-caddy run               # serves dist/ and proxies the API on :8080
+./scripts/bootstrap.sh   # first run: images, stack, schema, keys, build, web server
+./scripts/start.sh       # every time after that
+./scripts/stop.sh        # shut down, keeping data
+```
+
+What `bootstrap.sh` does, if you would rather drive it by hand:
+
+```bash
+supabase start            # boots the stack, prints the anon and service-role keys
+supabase db reset         # applies supabase/migrations/ in order — rebuilds the schema
+./scripts/build.sh        # compiles to dist/, baking in .env
+docker compose up -d web  # Caddy serves dist/ and proxies the API on :8080
 ```
 
 For frontend work, `npm run dev` on :5173 hits the stack directly and skips Caddy;

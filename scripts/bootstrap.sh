@@ -62,9 +62,23 @@ fi
 # ------------------------------------------------------------ front end -----
 
 say "Reading the stack's keys"
-ANON_KEY="$(supabase status -o env 2>/dev/null | sed -n 's/^ANON_KEY="\(.*\)"$/\1/p')"
+# Two ways of asking, because the CLI's output format is not a contract.
+# First the machine-readable form, quoted or not; then the human one.
+ANON_KEY="$(supabase status -o env 2>/dev/null | sed -n 's/^ANON_KEY=//p' | tr -d '"' | head -1)"
+if [ -z "$ANON_KEY" ]; then
+  ANON_KEY="$(supabase status 2>/dev/null | sed -n 's/.*[Aa]non key:[[:space:]]*//p' | head -1)"
+fi
 [ -n "$ANON_KEY" ] || die "Couldn't read the anon key from 'supabase status'.
-    Run 'supabase status' yourself and copy ANON_KEY into .env by hand."
+    Run 'supabase status' yourself, copy the anon key, put it in .env as
+        VITE_SUPABASE_ANON_KEY=<the key>
+    then run ./scripts/build.sh"
+
+# Sanity-check it looks like a JWT rather than a stray line of output.
+case "$ANON_KEY" in
+  ey*) ;;
+  *) die "That doesn't look like a key: '$ANON_KEY'
+    Run 'supabase status' and set VITE_SUPABASE_ANON_KEY in .env by hand." ;;
+esac
 
 SITE_URL="$(frc_env_get supabase/.env FRC_SITE_URL)"
 SITE_URL="${SITE_URL:-http://localhost:8080}"

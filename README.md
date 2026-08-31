@@ -117,7 +117,10 @@ anything fails, so it is also the thing to run before a cafe day.
 
 Then open <http://localhost:8080>. You should see the Repair Cafe home page.
 
-**Create your account** in the app — use the normal sign-up.
+**Create your account.** Go to <http://localhost:8080/team> — or click *Volunteer with us* on the
+home page. Choose *Create account*, enter your name, email and a password. You are signed in
+straight away: email confirmation is deliberately switched off, because nothing here sends email,
+so leaving it on would strand every new account.
 
 **Make yourself a repairer.** New volunteer accounts start unapproved and see nothing until an
 existing repairer approves them. The first one has nobody to do that, so:

@@ -2,6 +2,8 @@ import { Routes, Route, Navigate, Link } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { Splash, BrandLogo, BrandMarkFallback, initialsOf } from './components/ui'
 import AuthPage from './pages/AuthPage'
+import WelcomePage from './pages/WelcomePage'
+import TicketEntryPage from './pages/TicketEntryPage'
 import RoleSelectPage from './pages/RoleSelectPage'
 import PendingApprovalPage from './pages/PendingApprovalPage'
 import VisitorHome from './pages/visitor/VisitorHome'
@@ -11,6 +13,7 @@ import VolunteerDashboard from './pages/volunteer/VolunteerDashboard'
 
 function TopBar() {
   const { profile, signOut } = useAuth()
+  const isVisitor = profile?.role !== 'volunteer'
   return (
     <header className="topbar">
       <div className="topbar-inner">
@@ -23,6 +26,12 @@ function TopBar() {
           </div>
         </Link>
         <div className="topbar-spacer" />
+        {isVisitor && profile?.person_code && (
+          <div className="topbar-code" title="Your visitor number — the first half of every ticket you hold">
+            <span className="tc-label">Your number</span>
+            <span className="tc-value">{profile.person_code}</span>
+          </div>
+        )}
         <div className="user-chip">
           <div className="avatar">{initialsOf(profile?.full_name)}</div>
           <div className="who">
@@ -37,10 +46,27 @@ function TopBar() {
 }
 
 export default function App() {
-  const { session, profile, loading } = useAuth()
+  const { session, profile, loading, profileLoading } = useAuth()
 
   if (loading) return <Splash />
-  if (!session) return <AuthPage />
+
+  // Signed out: visitors use a ticket number, the team signs in as before.
+  if (!session) {
+    return (
+      <Routes>
+        <Route path="/" element={<WelcomePage />} />
+        <Route path="/ticket" element={<TicketEntryPage />} />
+        <Route path="/t/:code" element={<TicketEntryPage />} />
+        <Route path="/book" element={<BookingWizard />} />
+        <Route path="/team" element={<AuthPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    )
+  }
+
+  // Don't offer the role picker while the profile is still on its way — a
+  // visitor who just got a ticket number would see it flash past.
+  if (!profile && profileLoading) return <Splash />
   if (!profile || !profile.role) return <RoleSelectPage />
   if (profile.role === 'volunteer' && !profile.approved) {
     return (

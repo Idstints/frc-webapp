@@ -20,15 +20,30 @@ export default function VolunteerDashboard() {
   const [cafes, setCafes] = useState([])
   const [cafeId, setCafeId] = useState(DEFAULT_CAFE_ID)
   const [repairs, setRepairs] = useState(null)
-  const [volunteers, setVolunteers] = useState(null)
+  const [people, setPeople] = useState(null)
+  const [unread, setUnread] = useState({}) // job_code → messages waiting on us
 
-  const loadTeam = async () => {
+  const loadPeople = async () => {
     const { data, error } = await supabase
       .from('profiles').select('*')
-      .eq('role', 'volunteer').eq('is_active', true)
+      .eq('is_active', true)
       .order('full_name')
     if (error) console.error(error)
-    setVolunteers(data ?? [])
+    setPeople(data ?? [])
+  }
+
+  const loadUnread = async () => {
+    const { data, error } = await supabase
+      .from('repair_messages').select('job_code')
+      .eq('sender_kind', 'visitor')
+      .is('read_by_team_at', null)
+    if (error) {
+      console.error(error)
+      return
+    }
+    const counts = {}
+    for (const m of data ?? []) counts[m.job_code] = (counts[m.job_code] ?? 0) + 1
+    setUnread(counts)
   }
 
   useEffect(() => {
@@ -42,16 +57,18 @@ export default function VolunteerDashboard() {
       setCafes(cafeRes.data ?? [])
       setRepairs(repairRes.data ?? [])
       for (const res of [cafeRes, repairRes]) if (res.error) console.error(res.error)
-      await loadTeam()
+      await Promise.all([loadPeople(), loadUnread()])
     }
     load()
     return () => { live = false }
   }, [])
 
-  if (repairs === null || volunteers === null) return <Splash />
+  if (repairs === null || people === null) return <Splash />
 
+  const volunteers = people.filter((p) => p.role === 'volunteer')
   const team = volunteers.filter((v) => v.approved)
   const pendingTeam = volunteers.filter((v) => !v.approved)
+  const visitors = people.filter((p) => p.role === 'visitor')
   const cafeRepairs = repairs.filter((r) => !r.cafe_id || r.cafe_id === cafeId)
   const updateRepair = (updated) =>
     setRepairs((rs) => rs.map((r) => (r.id === updated.id ? updated : r)))
@@ -76,7 +93,8 @@ export default function VolunteerDashboard() {
 
       {tab === 'browse' && (
         <BrowseTab repairs={cafeRepairs} volunteers={team} pendingVolunteers={pendingTeam}
-          profile={profile} onRepairUpdated={updateRepair} onTeamChanged={loadTeam} />
+          visitors={visitors} unread={unread} profile={profile}
+          onRepairUpdated={updateRepair} onTeamChanged={loadPeople} onThreadRead={loadUnread} />
       )}
       {tab === 'bench' && (
         <MyBenchTab repairs={cafeRepairs} volunteers={team} profile={profile} onRepairUpdated={updateRepair} />

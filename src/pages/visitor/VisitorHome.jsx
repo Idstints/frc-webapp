@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthContext'
 import { STATUS_META } from '../../lib/constants'
+import { groupIntoCases } from '../../lib/tickets'
 import { EmptyState, Spinner, FilterIcon, SearchIcon, IconWrench, IconHeart, IconClipboard } from '../../components/ui'
 import RepairCard from '../../components/RepairCard'
 import RepairDetailModal from '../../components/RepairDetailModal'
@@ -10,6 +11,7 @@ import RepairDetailModal from '../../components/RepairDetailModal'
 export default function VisitorHome() {
   const { profile } = useAuth()
   const [repairs, setRepairs] = useState(null)
+  const [unread, setUnread] = useState({}) // job_code → count
   const [selected, setSelected] = useState(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -26,22 +28,41 @@ export default function VisitorHome() {
         if (error) console.error(error)
         setRepairs(data ?? [])
       })
+
+    supabase
+      .from('repair_messages')
+      .select('job_code')
+      .eq('sender_kind', 'team')
+      .is('read_by_visitor_at', null)
+      .then(({ data }) => {
+        if (!live) return
+        const counts = {}
+        for (const m of data ?? []) counts[m.job_code] = (counts[m.job_code] ?? 0) + 1
+        setUnread(counts)
+      })
+
     return () => { live = false }
   }, [])
 
+  // One card per item, not per booking — a follow-up shows up as another visit
+  // on the ticket the visitor already has.
+  const cases = useMemo(() => (repairs ? groupIntoCases(repairs) : []), [repairs])
+
   const visible = useMemo(() => {
-    if (!repairs) return []
-    let list = [...repairs]
-    if (statusFilter !== 'all') list = list.filter((r) => r.status === statusFilter)
+    let list = [...cases]
+    if (statusFilter !== 'all') list = list.filter((c) => c.latest.status === statusFilter)
     if (search.trim()) {
       const q = search.trim().toLowerCase()
-      list = list.filter((r) => r.item.toLowerCase().includes(q) || r.category.toLowerCase().includes(q))
+      list = list.filter((c) =>
+        c.latest.item.toLowerCase().includes(q) ||
+        c.latest.category.toLowerCase().includes(q) ||
+        c.jobCode.toLowerCase().includes(q))
     }
-    if (sort === 'newest') list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    if (sort === 'oldest') list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-    if (sort === 'name') list.sort((a, b) => a.item.localeCompare(b.item))
+    if (sort === 'newest') list.sort((a, b) => new Date(b.latest.created_at) - new Date(a.latest.created_at))
+    if (sort === 'oldest') list.sort((a, b) => new Date(a.latest.created_at) - new Date(b.latest.created_at))
+    if (sort === 'name') list.sort((a, b) => a.latest.item.localeCompare(b.latest.item))
     return list
-  }, [repairs, search, statusFilter, sort])
+  }, [cases, search, statusFilter, sort])
 
   const firstName = profile?.full_name?.split(' ')[0]
 
@@ -71,13 +92,13 @@ export default function VisitorHome() {
 
       <div className="section-head">
         <h2>My repairs</h2>
-        {repairs && <span className="count">{repairs.length} booking{repairs.length === 1 ? '' : 's'}</span>}
+        {repairs && <span className="count">{cases.length} item{cases.length === 1 ? '' : 's'}</span>}
       </div>
 
       <div className="filterbar">
         <span className="f-ic"><FilterIcon /></span>
         <span className="f-ic" style={{ paddingLeft: 0 }}><SearchIcon /></span>
-        <input className="input search" placeholder="Search by item name" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className="input search" placeholder="Search by item or ticket number" value={search} onChange={(e) => setSearch(e.target.value)} />
         <select className="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filter by status">
           <option value="all">All statuses</option>
           {Object.entries(STATUS_META).map(([k, v]) => (
@@ -94,13 +115,20 @@ export default function VisitorHome() {
       {!repairs ? (
         <div style={{ display: 'grid', placeItems: 'center', padding: 40 }}><Spinner /></div>
       ) : visible.length === 0 ? (
-        <EmptyState icon={<IconClipboard />} title={repairs.length ? 'Nothing matches those filters' : 'No repairs booked yet'}>
-          {repairs.length ? 'Try clearing the search or status filter.' : 'Book your first repair above — it only takes a couple of minutes.'}
+        <EmptyState icon={<IconClipboard />} title={cases.length ? 'Nothing matches those filters' : 'No repairs booked yet'}>
+          {cases.length ? 'Try clearing the search or status filter.' : 'Book your first repair above — it only takes a couple of minutes.'}
         </EmptyState>
       ) : (
         <div className="repair-list">
-          {visible.map((r) => (
-            <RepairCard key={r.id} repair={r} showTracker onClick={() => setSelected(r)} />
+          {visible.map((c) => (
+            <RepairCard
+              key={c.jobCode}
+              repair={c.latest}
+              visitCount={c.visits.length}
+              unread={unread[c.jobCode] ?? 0}
+              showTracker
+              onClick={() => setSelected(c.latest)}
+            />
           ))}
         </div>
       )}
@@ -109,7 +137,11 @@ export default function VisitorHome() {
         <RepairDetailModal
           repair={selected}
           mode="visitor"
-          onClose={() => setSelected(null)}
+          profile={profile}
+          onClose={() => {
+            setSelected(null)
+            setUnread((u) => ({ ...u, [selected.job_code]: 0 }))
+          }}
           onUpdated={(u) => {
             setRepairs((rs) => rs.map((r) => (r.id === u.id ? u : r)))
             setSelected(u)

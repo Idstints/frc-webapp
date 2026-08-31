@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { Field, BrandLogo, IconCalendar, IconClipboard, IconMapPin, IconCoffee, IconHome, IconWrench } from '../components/ui'
+import PublicShell from '../components/PublicShell'
+import { Field } from '../components/ui'
 
 const GoogleIcon = () => (
   <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
@@ -11,10 +13,12 @@ const GoogleIcon = () => (
   </svg>
 )
 
+// Sign-in for the repair team. Visitors no longer come through here — they use
+// a ticket number instead — but anyone who already has an account can still
+// sign in with it.
 export default function AuthPage() {
   const { signIn, signUp, signInWithGoogle } = useAuth()
   const [tab, setTab] = useState('signin')
-  const [role, setRole] = useState('visitor')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -32,7 +36,7 @@ export default function AuthPage() {
         await signIn({ email, password })
       } else {
         if (!fullName.trim()) throw new Error('Please enter your name.')
-        const { session } = await signUp({ email, password, fullName: fullName.trim(), role })
+        const { session } = await signUp({ email, password, fullName: fullName.trim(), role: 'volunteer' })
         if (!session) {
           setNotice('Almost done — please check your email for a confirmation link, then sign in.')
         }
@@ -47,92 +51,58 @@ export default function AuthPage() {
   const google = async () => {
     setError('')
     try {
-      await signInWithGoogle(tab === 'signup' ? role : null)
+      await signInWithGoogle(tab === 'signup' ? 'volunteer' : null)
     } catch (err) {
       setError(err.message ?? 'Google sign-in is not available right now.')
     }
   }
 
   return (
-    <div className="auth-shell">
-      <div className="auth-hero">
-        <div className="hero-logo">
-          <BrandLogo height={52} />
-          <div>
-            <div className="hl-name">Footscray Repair Cafe</div>
-            <div className="hl-sub">Angliss Neighbourhood House</div>
-          </div>
-        </div>
-        <h1>Don&rsquo;t throw it away — repair it together.</h1>
-        <p className="lede">
-          Footscray Repair Cafe is a free community repair service. Bring a broken household item
-          along on the second Saturday of each month, and our volunteer repairers will work with
-          you to bring it back to life.
-        </p>
-        <div className="facts">
-          <div className="fact"><IconCalendar /><span>Second Saturday of each month, 11am – 1.30pm</span></div>
-          <div className="fact"><IconClipboard /><span>Bookings close at 6pm on the Wednesday before each session</span></div>
-          <div className="fact"><IconCoffee /><span>One item per visit — enjoy a free cuppa while you wait</span></div>
-          <div className="fact"><IconMapPin /><span>Angliss Neighbourhood House, 2/11 Vipont St, Footscray</span></div>
-        </div>
-        <div className="hero-foot">
-          Supported by the Maribyrnong City Council Community Grants Program.
-        </div>
+    <PublicShell>
+      <Link to="/" style={{ fontSize: 13, textDecoration: 'none', fontWeight: 600 }}>← Back</Link>
+      <h2 style={{ fontSize: 20, margin: '12px 0 4px' }}>
+        {tab === 'signin' ? 'Repair team sign-in' : 'Join the repair team'}
+      </h2>
+      <p style={{ color: 'var(--ink-2)', fontSize: 13.5, marginBottom: 18 }}>
+        {tab === 'signin'
+          ? 'For volunteers and coordinators. Visitors do not need an account.'
+          : 'New volunteer accounts are activated after review by a coordinator.'}
+      </p>
+
+      <div className="auth-tabs" role="tablist">
+        <button role="tab" aria-selected={tab === 'signin'} className={tab === 'signin' ? 'on' : ''} onClick={() => setTab('signin')}>Sign in</button>
+        <button role="tab" aria-selected={tab === 'signup'} className={tab === 'signup' ? 'on' : ''} onClick={() => setTab('signup')}>Create account</button>
       </div>
 
-      <div className="auth-panel">
-        <div className="auth-card">
-          <h2 style={{ fontSize: 20, marginBottom: 4 }}>{tab === 'signin' ? 'Welcome back' : 'Create your account'}</h2>
-          <p style={{ color: 'var(--ink-2)', fontSize: 13.5, marginBottom: 18 }}>
-            {tab === 'signin' ? 'Sign in to manage your repairs.' : 'Book repairs or join the volunteer team — it only takes a minute.'}
-          </p>
+      {error && <div className="form-error">{error}</div>}
+      {notice && <div className="form-ok">{notice}</div>}
 
-          <div className="auth-tabs" role="tablist">
-            <button role="tab" aria-selected={tab === 'signin'} className={tab === 'signin' ? 'on' : ''} onClick={() => setTab('signin')}>Sign in</button>
-            <button role="tab" aria-selected={tab === 'signup'} className={tab === 'signup' ? 'on' : ''} onClick={() => setTab('signup')}>Create account</button>
-          </div>
+      <form onSubmit={submit}>
+        {tab === 'signup' && (
+          <Field label="Full name">
+            <input className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" />
+          </Field>
+        )}
+        <Field label="Email">
+          <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+        </Field>
+        <Field label="Password">
+          <input className="input" type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
+            autoComplete={tab === 'signin' ? 'current-password' : 'new-password'} />
+        </Field>
+        <button className="btn btn-primary btn-lg btn-block" disabled={busy}>
+          {busy ? 'One moment…' : tab === 'signin' ? 'Sign in' : 'Create account'}
+        </button>
+      </form>
 
-          {error && <div className="form-error">{error}</div>}
-          {notice && <div className="form-ok">{notice}</div>}
+      <div className="divider">or</div>
+      <button className="btn btn-secondary btn-block" onClick={google} type="button">
+        <GoogleIcon /> Continue with Google
+      </button>
 
-          <form onSubmit={submit}>
-            {tab === 'signup' && (
-              <>
-                <Field label="I&rsquo;m joining as">
-                  <div className="opt-cards">
-                    <button type="button" className={`opt-card ${role === 'visitor' ? 'on' : ''}`} onClick={() => setRole('visitor')}>
-                      <span className="oc-icon"><IconHome /></span>
-                      <span><span className="oc-title">Visitor</span><div className="oc-sub">I have an item that needs repairing</div></span>
-                    </button>
-                    <button type="button" className={`opt-card ${role === 'volunteer' ? 'on' : ''}`} onClick={() => setRole('volunteer')}>
-                      <span className="oc-icon"><IconWrench /></span>
-                      <span><span className="oc-title">Volunteer</span><div className="oc-sub">I&rsquo;m part of the repair team — accounts are activated after review by a coordinator</div></span>
-                    </button>
-                  </div>
-                </Field>
-                <Field label="Full name">
-                  <input className="input" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" />
-                </Field>
-              </>
-            )}
-            <Field label="Email">
-              <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-            </Field>
-            <Field label="Password">
-              <input className="input" type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)}
-                autoComplete={tab === 'signin' ? 'current-password' : 'new-password'} />
-            </Field>
-            <button className="btn btn-primary btn-lg btn-block" disabled={busy}>
-              {busy ? 'One moment…' : tab === 'signin' ? 'Sign in' : 'Create account'}
-            </button>
-          </form>
-
-          <div className="divider">or</div>
-          <button className="btn btn-secondary btn-block" onClick={google} type="button">
-            <GoogleIcon /> Continue with Google
-          </button>
-        </div>
-      </div>
-    </div>
+      <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 18, textAlign: 'center' }}>
+        Here to get something repaired? <Link to="/ticket" style={{ fontWeight: 600 }}>Use your ticket number</Link>
+      </p>
+    </PublicShell>
   )
 }

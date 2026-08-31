@@ -2,12 +2,17 @@ import { useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { STATUS_META, SKILLS } from '../../lib/constants'
 import { formatShortDate } from '../../lib/dates'
+import { formatTicket, normaliseTicket } from '../../lib/tickets'
 import { EmptyState, FilterIcon, SearchIcon, ChipGroup, initialsOf, IconUsers } from '../../components/ui'
 import RepairCard from '../../components/RepairCard'
 import RepairDetailModal from '../../components/RepairDetailModal'
 
-// Tab 1 — browse every repair in the database, or search the repairer roster.
-export default function BrowseTab({ repairs, volunteers, pendingVolunteers = [], profile, onRepairUpdated, onTeamChanged }) {
+// Tab 1 — browse every repair in the database, look up a returning visitor, or
+// search the repairer roster.
+export default function BrowseTab({
+  repairs, volunteers, pendingVolunteers = [], visitors = [], unread = {},
+  profile, onRepairUpdated, onTeamChanged, onThreadRead,
+}) {
   const [mode, setMode] = useState('repairs')
   const [selected, setSelected] = useState(null)
   const [actioning, setActioning] = useState('')
@@ -31,17 +36,23 @@ export default function BrowseTab({ repairs, volunteers, pendingVolunteers = [],
   const [volSearch, setVolSearch] = useState('')
   const [skillFilter, setSkillFilter] = useState([])
 
+  // visitor lookup — for the host desk on the day
+  const [visitorSearch, setVisitorSearch] = useState('')
+
   const visibleRepairs = useMemo(() => {
     let list = [...repairs]
     if (statusFilter === 'open') list = list.filter((r) => !['completed', 'cancelled'].includes(r.status))
     else if (statusFilter !== 'all') list = list.filter((r) => r.status === statusFilter)
     if (search.trim()) {
       const q = search.trim().toLowerCase()
+      const ticket = normaliseTicket(search)
       list = list.filter((r) =>
         r.item.toLowerCase().includes(q) ||
         r.visitor_name?.toLowerCase().includes(q) ||
         r.category.toLowerCase().includes(q) ||
-        r.assigned_repairer_name?.toLowerCase().includes(q))
+        r.assigned_repairer_name?.toLowerCase().includes(q) ||
+        r.phone?.replace(/\s/g, '').includes(q.replace(/\s/g, '')) ||
+        (ticket.length >= 3 && r.job_code?.includes(ticket)))
     }
     if (sort === 'newest') list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     if (sort === 'oldest') list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
@@ -61,16 +72,41 @@ export default function BrowseTab({ repairs, volunteers, pendingVolunteers = [],
     return list
   }, [volunteers, volSearch, skillFilter])
 
+  // Every visitor with the tickets they hold, for looking someone up at the desk.
+  const visibleVisitors = useMemo(() => {
+    const q = visitorSearch.trim().toLowerCase()
+    const ticket = normaliseTicket(visitorSearch)
+    const ticketsOf = (id) => [...new Set(repairs.filter((r) => r.visitor_id === id).map((r) => r.job_code))]
+    const codeOf = (id) => visitors.find((p) => p.id === id)?.person_code ?? null
+    return visitors
+      .map((v) => ({ ...v, tickets: ticketsOf(v.id), duplicateCode: v.possible_duplicate_of ? codeOf(v.possible_duplicate_of) : null }))
+      .filter((v) => {
+        if (!q) return true
+        return (
+          v.full_name?.toLowerCase().includes(q) ||
+          v.email?.toLowerCase().includes(q) ||
+          v.phone?.replace(/\s/g, '').includes(q.replace(/\s/g, '')) ||
+          (ticket.length >= 3 && (v.person_code?.includes(ticket) || v.tickets.some((t) => t.includes(ticket))))
+        )
+      })
+      .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+  }, [visitors, repairs, visitorSearch])
+
   const activeCount = (volId) =>
     repairs.filter((r) => r.assigned_repairer_id === volId && ['assigned', 'in_progress'].includes(r.status)).length
   const doneCount = (volId) =>
     repairs.filter((r) => r.assigned_repairer_id === volId && r.status === 'completed').length
 
+  const unreadTotal = Object.values(unread).reduce((s, n) => s + n, 0)
+
   return (
     <div>
       <div className="seg" role="tablist" style={{ marginBottom: 16 }}>
         <button role="tab" aria-selected={mode === 'repairs'} className={mode === 'repairs' ? 'on' : ''} onClick={() => setMode('repairs')}>
-          Repairs
+          Repairs{unreadTotal > 0 && <span className="seg-badge">{unreadTotal}</span>}
+        </button>
+        <button role="tab" aria-selected={mode === 'visitors'} className={mode === 'visitors' ? 'on' : ''} onClick={() => setMode('visitors')}>
+          Visitors
         </button>
         <button role="tab" aria-selected={mode === 'repairers'} className={mode === 'repairers' ? 'on' : ''} onClick={() => setMode('repairers')}>
           Repairers
@@ -82,7 +118,7 @@ export default function BrowseTab({ repairs, volunteers, pendingVolunteers = [],
           <div className="filterbar">
             <span className="f-ic"><FilterIcon /></span>
             <span className="f-ic" style={{ paddingLeft: 0 }}><SearchIcon /></span>
-            <input className="input search" placeholder="Search by item, visitor or repairer" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input className="input search" placeholder="Search by item, visitor, repairer, phone or ticket" value={search} onChange={(e) => setSearch(e.target.value)} />
             <select className="select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filter by status">
               <option value="all">All statuses</option>
               <option value="open">Open (not finished)</option>
@@ -102,7 +138,58 @@ export default function BrowseTab({ repairs, volunteers, pendingVolunteers = [],
           ) : (
             <div className="repair-list">
               {visibleRepairs.map((r) => (
-                <RepairCard key={r.id} repair={r} showVisitor onClick={() => setSelected(r)} />
+                <RepairCard key={r.id} repair={r} showVisitor unread={unread[r.job_code] ?? 0} onClick={() => setSelected(r)} />
+              ))}
+            </div>
+          )}
+        </>
+      ) : mode === 'visitors' ? (
+        <>
+          <div className="filterbar">
+            <span className="f-ic"><SearchIcon /></span>
+            <input className="input search" placeholder="Search by name, phone, email or ticket number"
+              value={visitorSearch} onChange={(e) => setVisitorSearch(e.target.value)} />
+          </div>
+          <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 14px' }}>
+            For the welcome desk — find a returning visitor and read their ticket number back to them.
+          </p>
+
+          {visibleVisitors.length === 0 ? (
+            <EmptyState icon={<IconUsers />} title="No visitors match">
+              Try a phone number, or just the first few digits of their ticket.
+            </EmptyState>
+          ) : (
+            <div className="repair-list">
+              {visibleVisitors.map((v) => (
+                <div key={v.id} className="card repairer-card">
+                  <div className="avatar">{initialsOf(v.full_name)}</div>
+                  <div className="r-main">
+                    <div className="r-name">
+                      {v.full_name || 'Unnamed visitor'}
+                      {v.duplicateCode && (
+                        <span className="dupe-tag" title="Chose to book separately even though these details matched an existing record">
+                          also {v.duplicateCode}?
+                        </span>
+                      )}
+                    </div>
+                    <div className="r-sub">
+                      {[v.phone, v.email, v.postcode].filter(Boolean).join(' · ') || 'No contact details recorded'}
+                      {v.last_claimed_at && (
+                        <> · opened by details {formatShortDate(v.last_claimed_at)}</>
+                      )}
+                    </div>
+                  </div>
+                  <div className="r-skills">
+                    <span className="person-code" title="Visitor number — the first half of all their tickets">
+                      {v.person_code}
+                    </span>
+                    {v.tickets.slice(0, 4).map((t) => (
+                      <span key={t} className="skill-tag">{formatTicket(t)}</span>
+                    ))}
+                    {v.tickets.length > 4 && <span className="skill-tag more">+{v.tickets.length - 4}</span>}
+                    {!v.tickets.length && <span className="skill-tag more">No repairs booked yet</span>}
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -187,7 +274,7 @@ export default function BrowseTab({ repairs, volunteers, pendingVolunteers = [],
           mode="volunteer"
           profile={profile}
           volunteers={volunteers}
-          onClose={() => setSelected(null)}
+          onClose={() => { setSelected(null); onThreadRead?.() }}
           onUpdated={(u) => { onRepairUpdated(u); setSelected(u) }}
         />
       )}

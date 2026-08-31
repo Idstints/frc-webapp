@@ -7,17 +7,20 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [profileLoading, setProfileLoading] = useState(false)
 
   const loadProfile = useCallback(async (userId) => {
     if (!userId) {
       setProfile(null)
       return null
     }
+    setProfileLoading(true)
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .maybeSingle()
+    setProfileLoading(false)
     if (error) {
       console.error('Failed to load profile', error)
       return null
@@ -79,6 +82,52 @@ export function AuthProvider({ children }) {
     setProfile(null)
   }
 
+  // ---- ticket-number access ----------------------------------------------
+  // Visitors never pick a password or confirm an email. The visitor-access
+  // function checks their ticket, then hands back a one-time token we swap for
+  // an ordinary session — so every row-level security rule still applies.
+  const callVisitorAccess = async (body) => {
+    const { data, error } = await supabase.functions.invoke('visitor-access', { body })
+    if (error) {
+      let message = 'Something went wrong. Please try again.'
+      try {
+        message = (await error.context.json()).error ?? message
+      } catch { /* network-level failure — keep the generic message */ }
+      throw new Error(message)
+    }
+    return data
+  }
+
+  const exchange = async (tokenHash) => {
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'magiclink' })
+    if (error) throw error
+    return data
+  }
+
+  const signInWithTicket = async (code) => {
+    const { token_hash } = await callVisitorAccess({ action: 'signin', code })
+    return exchange(token_hash)
+  }
+
+  // Creates the hidden account behind a first booking and signs them straight in.
+  const registerVisitor = async (details) => {
+    const { token_hash, person_code } = await callVisitorAccess({ action: 'register', ...details })
+    const data = await exchange(token_hash)
+    return { personCode: person_code, user: data.user }
+  }
+
+  // Do we already hold a record for these details? Answers yes or no and how
+  // many repairs are on it — never a name, ticket or contact detail.
+  const checkExistingVisitor = (details) =>
+    callVisitorAccess({ action: 'check-existing', ...details })
+
+  // Opens that record. Two of name, phone and email have to agree.
+  const claimExistingVisitor = async (details) => {
+    const { token_hash, person_code } = await callVisitorAccess({ action: 'claim-existing', ...details })
+    const data = await exchange(token_hash)
+    return { personCode: person_code, user: data.user }
+  }
+
   const updateProfile = async (patch) => {
     if (!session) throw new Error('Not signed in')
     const { data, error } = await supabase
@@ -96,9 +145,14 @@ export function AuthProvider({ children }) {
     user: session?.user ?? null,
     profile,
     loading,
+    profileLoading,
     signUp,
     signIn,
     signInWithGoogle,
+    signInWithTicket,
+    registerVisitor,
+    checkExistingVisitor,
+    claimExistingVisitor,
     signOut,
     updateProfile,
     refreshProfile: () => loadProfile(session?.user?.id),

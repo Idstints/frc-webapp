@@ -6,6 +6,7 @@ import { CATEGORIES, CONTACT_METHODS, TIME_SLOTS, SLOT_CAPACITY, DEFAULT_CAFE_ID
 import { bookableSessionDates, toISODate, formatSessionDate, formatShortDate } from '../../lib/dates'
 import { formatTicket } from '../../lib/tickets'
 import { Field, ChipGroup, Spinner, IconCamera, IconCheckCircle, IconX } from '../../components/ui'
+import { v4 as uuidv4 } from 'uuid';
 
 const STEP_LABELS = ['Your details', 'Your item', 'The problem', 'Book a session']
 const MAX_PHOTOS = 3
@@ -156,7 +157,7 @@ export default function BookingWizard() {
     const urls = []
     for (const { file } of photos) {
       const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
-      const path = `${profile.id}/${crypto.randomUUID()}.${ext}`
+      const path = `${profile.id}/${uuidv4()}.${ext}`
       const { error: upErr } = await supabase.storage.from('repair-photos').upload(path, file)
       if (upErr) throw new Error(`Photo upload failed: ${upErr.message}`)
       urls.push(supabase.storage.from('repair-photos').getPublicUrl(path).data.publicUrl)

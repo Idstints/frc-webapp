@@ -141,3 +141,21 @@ frc_db_container() {
 frc_env_get() {
   sed -n "s/^$2=//p" "$1" 2>/dev/null | head -1
 }
+
+# The Supabase CLI's edge function container can end up stopped while the rest
+# of the stack is fine, and "supabase start" then says "already running" and
+# leaves it down. Every booking fails until it is started. This starts it if
+# needed and tells Docker to bring it back by itself if it stops again.
+# The setting is lost whenever the stack is recreated, so call this after
+# every "supabase start".
+frc_keep_edge_alive() {
+  local c state
+  c="$(docker ps -a --filter 'name=supabase_edge_runtime_' --format '{{.Names}}' 2>/dev/null | head -1)"
+  [ -n "$c" ] || return 0
+  docker update --restart unless-stopped "$c" >/dev/null 2>&1 || true
+  state="$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null || echo false)"
+  if [ "$state" != true ]; then
+    warn "The booking function container ($c) was stopped. Starting it."
+    docker start "$c" >/dev/null 2>&1 || warn "Could not start $c. Check: docker logs $c --tail 60"
+  fi
+}

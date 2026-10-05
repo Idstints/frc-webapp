@@ -111,6 +111,7 @@ frc_require_supabase
 say "Restarting the stack so sign-in picks up the new address"
 supabase stop
 supabase start
+frc_keep_edge_alive
 
 ./scripts/build.sh
 

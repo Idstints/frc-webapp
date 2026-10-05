@@ -13,6 +13,7 @@ frc_require_supabase
 
 say "Supabase stack"
 supabase start
+frc_keep_edge_alive
 
 say "Web server"
 frc_compose up -d web

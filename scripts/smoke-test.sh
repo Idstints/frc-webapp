@@ -101,7 +101,8 @@ case "$code" in
   400|422) ok "visitor-access is deployed and rejecting bad input ($code)" ;;
   404) no "visitor-access is not deployed (404)" "supabase functions serve, or restart the stack" ;;
   401) no "visitor-access demanded a JWT (401)" "verify_jwt must be false in supabase/config.toml" ;;
-  000|502) no "visitor-access unreachable ($code)" ;;
+  000|502|503|504) no "visitor-access unreachable ($code)" "docker start supabase_edge_runtime_frc-local" ;;
+  5??) no "visitor-access crashed ($code)" "docker logs supabase_edge_runtime_frc-local --tail 60" ;;
   *) ok "visitor-access responded ($code)" ;;
 esac
 

@@ -7,10 +7,7 @@ import { IconWrench, IconHeart } from '../components/ui'
 export default function WelcomePage() {
   return (
     <PublicShell>
-      <h2 style={{ fontSize: 20, marginBottom: 4 }}>Welcome</h2>
-      <p style={{ color: 'var(--ink-2)', fontSize: 13.5, marginBottom: 20 }}>
-        No account, no password and no email to confirm — just a ticket number we give you.
-      </p>
+      <h2 style={{ fontSize: 20, marginBottom: 16 }}>Welcome</h2>
 
       <div className="welcome-actions">
         <Link to="/ticket" className="welcome-action primary">
@@ -25,15 +22,10 @@ export default function WelcomePage() {
           <span className="wa-icon"><IconHeart /></span>
           <span>
             <span className="wa-title">Volunteer with us</span>
-            <span className="wa-sub">Good with tools, sewing or electronics — or simply good with people?</span>
+            <span className="wa-sub">Join the team, or sign in if you&rsquo;re already on it.</span>
           </span>
         </Link>
       </div>
-
-      <div className="divider">or</div>
-      <p style={{ fontSize: 13, color: 'var(--ink-2)', textAlign: 'center' }}>
-        Already on the repair team? <Link to="/team" style={{ fontWeight: 600 }}>Sign in here</Link>
-      </p>
     </PublicShell>
   )
 }

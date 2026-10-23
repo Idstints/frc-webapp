@@ -1,6 +1,13 @@
 // The one cafe for now — the cafe switcher is wired for more later.
 export const DEFAULT_CAFE_ID = 'a0000000-0000-4000-8000-000000000001'
 
+export const ANGLISS_WEBSITE = 'https://anglissnh.net.au/'
+
+// Fill these in: shown on the team sign-in page when a volunteer forgets their
+// password. Blank fields are left out; if all three are blank the page just
+// says to contact Angliss Neighbourhood House and links to the website.
+export const ANGLISS_CONTACT = { name: '', phone: '', email: '' }
+
 export const CATEGORIES = [
   'Bicycles / scooters',
   'Clothing, fabric and textiles',

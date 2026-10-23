@@ -106,6 +106,16 @@ case "$code" in
   *) ok "visitor-access responded ($code)" ;;
 esac
 
+# Without a JWT this must refuse. Anything else means it is missing, down, or
+# open to anyone, and it sets passwords.
+code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10         -X POST -H 'Content-Type: application/json' -d '{}'         "$BASE/functions/v1/admin-set-password" || echo 000)"
+case "$code" in
+  401) ok "admin-set-password is deployed and demands a sign-in (401)" ;;
+  404) no "admin-set-password is not deployed (404)" "Restart the stack: ./scripts/stop.sh && ./scripts/start.sh" ;;
+  000|502|503|504) no "admin-set-password unreachable ($code)" "docker start supabase_edge_runtime_frc-local" ;;
+  *) no "admin-set-password answered $code without a sign-in" "verify_jwt must be true for it in supabase/config.toml" ;;
+esac
+
 # ============================================================== 6. schema ===
 
 say "Schema"
@@ -113,7 +123,7 @@ say "Schema"
 if [ -n "$DB" ]; then
   q() { docker exec -i "$DB" psql -U postgres -d postgres -tAc "$1" 2>/dev/null | tr -d '\r'; }
 
-  for t in cafes profiles repair_requests volunteer_applications repair_messages ticket_attempts; do
+  for t in cafes profiles repair_requests volunteer_applications repair_messages ticket_attempts password_resets; do
     if [ "$(q "select to_regclass('public.$t') is not null;")" = t ]; then
       ok "table $t"
     else
@@ -133,7 +143,7 @@ if [ -n "$DB" ]; then
     no "RLS is OFF on: $unprotected" "These tables are readable by anyone with the anon key"
   fi
 
-  for f in is_volunteer assign_job_code find_visitor_match slot_availability set_volunteer_approval; do
+  for f in is_volunteer assign_job_code find_visitor_match slot_availability set_volunteer_approval is_coordinator set_coordinator; do
     if [ "$(q "select count(*) > 0 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname='public' and p.proname='$f';")" = t ]; then
       ok "function $f"
     else
@@ -141,10 +151,31 @@ if [ -n "$DB" ]; then
     fi
   done
 
+  # Without this, anyone holding a ticket could approve themselves as a volunteer.
+  if [ "$(q "select count(*) > 0 from pg_trigger where tgname = 'profiles_guard' and not tgisinternal;")" = t ]; then
+    ok "profile guard trigger"
+  else
+    no "profile guard trigger is missing" "Anyone signed in could approve themselves — supabase db reset"
+  fi
+
+  # Not a failure on a fresh install, but nobody can reset passwords until one exists.
+  if [ "$(q "select count(*) > 0 from public.profiles where is_coordinator and approved and role = 'volunteer';")" = t ]; then
+    ok "at least one coordinator"
+  else
+    warn "No coordinator yet. Nobody can reset volunteer passwords until there is one."
+    info "    ./scripts/make-coordinator.sh you@example.com"
+  fi
+
   if [ "$(q "select count(*) > 0 from storage.buckets where id = 'repair-photos';")" = t ]; then
     ok "storage bucket repair-photos"
   else
     no "storage bucket repair-photos is missing" "Photo uploads will fail"
+  fi
+
+  if [ "$(q "select count(*) > 0 from storage.buckets where id = 'message-files' and public = false;")" = t ]; then
+    ok "storage bucket message-files (private)"
+  else
+    no "storage bucket message-files is missing or public" "Chat attachments will fail, or be readable by anyone"
   fi
 
   if [ "$(q "select count(*) > 0 from pg_publication_tables where pubname='supabase_realtime' and tablename='repair_messages';")" = t ]; then

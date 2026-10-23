@@ -2,12 +2,13 @@ import { formatSessionDate, formatShortDate } from '../lib/dates'
 import { formatTicket } from '../lib/tickets'
 import { StatusBadge, IconImage } from './ui'
 import ProgressSteps from './ProgressSteps'
+import { photoUrl } from '../lib/supabaseClient'
 
 // Repair summary card. Shows the visitor's item photo when one was provided.
 // `showTracker` renders the visitor-facing 4-step progress bar; the volunteer
 // board uses the compact variant with visitor and repairer details.
 export default function RepairCard({ repair, onClick, showTracker = false, showVisitor = false, visitCount = 1, unread = 0 }) {
-  const photo = repair.photos?.[0]
+  const photo = photoUrl(repair.photos?.[0])
   return (
     <div className="card repair-card" onClick={onClick} role="button" tabIndex={0}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick?.()}>

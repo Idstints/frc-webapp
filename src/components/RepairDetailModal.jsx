@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, photoUrl } from '../lib/supabaseClient'
 import { OUTCOMES, OUTCOME_LABELS } from '../lib/constants'
 import { formatSessionDate, formatShortDate, upcomingSessionDates } from '../lib/dates'
 import { formatTicket } from '../lib/tickets'
@@ -314,7 +314,7 @@ export default function RepairDetailModal({ repair, mode, profile, volunteers = 
           {repair.photos?.length > 0 && (
             <div className="photo-strip">
               {repair.photos.map((url) => (
-                <img key={url} src={url} alt={repair.item} onClick={() => setLightbox(url)} />
+                <img key={url} src={photoUrl(url)} alt={repair.item} onClick={() => setLightbox(photoUrl(url))} />
               ))}
             </div>
           )}

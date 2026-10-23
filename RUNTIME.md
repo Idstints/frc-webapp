@@ -126,8 +126,23 @@ The parts that are load-bearing for privacy, in rough order of how bad it is to 
 - **Name + phone is also a credential.** `find_visitor_match` opens an existing record on 2 of 3
   matching details, a deliberate trade for visitors who lost their card. `profiles.last_claimed_at`
   is stamped on every such claim so the team can audit which records were opened this way.
-- **Security-definer functions** (`is_volunteer`, `slot_availability`, `find_visitor_match`,
-  `set_volunteer_approval`, `mark_thread_read`) run as their owner and bypass RLS internally.
+- **The profile guard.** RLS can't limit columns, and `"update own profile"` lets a signed-in user
+  write their own row. The `profiles_guard` trigger stops calls from the browser changing
+  `approved` or `is_coordinator`, and allows `role` to change only from unset to a role, or from
+  an unapproved volunteer to a visitor. Without it, anyone with a ticket could approve themselves
+  and read every visitor's details. It only applies to the `authenticated` and `anon` roles, so
+  migrations, edge functions, scripts and Studio are unaffected.
+- **`admin-set-password` changes passwords.** It needs a JWT (`verify_jwt = true`) and checks
+  the caller is an approved coordinator, so it only sets passwords for volunteer accounts. Every
+  use is logged in `password_resets`.
+- **Chat attachments are private.** Files sent in a ticket's conversation go to the
+  `message-files` bucket, which is **not public**, one folder per ticket number. Storage lets
+  someone upload or read a file only if `can_see_job()` lets them see that ticket. The app
+  shows files through signed links that expire after an hour. Item photos from the booking form
+  are different: they're in the public `repair-photos` bucket with unguessable paths.
+- **Security-definer functions** (`is_volunteer`, `is_coordinator`, `slot_availability`,
+  `find_visitor_match`, `set_volunteer_approval`, `set_coordinator`, `mark_thread_read`) run as
+  their owner and bypass RLS internally.
   `find_visitor_match` is revoked from `anon` and `authenticated` — only the edge function may
   call it. Check those grants after any schema change.
 
@@ -180,6 +195,48 @@ For frontend work, `npm run dev` on :5173 hits the stack directly and skips Cadd
 
 `supabase db reset` **drops the database and rebuilds it**. It is the right command on a fresh
 machine and the wrong one on a live server — once real bookings exist, use `supabase migration up`.
+
+## Coordinators and passwords
+
+Passwords are stored only as a hash. **Nobody can look up a password**, not in the app and not
+in Studio. When a volunteer forgets theirs, a coordinator sets a new one and tells them.
+
+A coordinator is an approved volunteer with `profiles.is_coordinator = true`. In the app
+(Repair board → Repairers) coordinators can:
+
+- **Set new password** on any other volunteer's card. A readable password is suggested and
+  shown in full so it can be read out. The volunteer can change it under My bench.
+- **Make coordinator / Remove coordinator.** There can be any number. The last one can't be
+  removed: make someone else a coordinator first, then step down.
+
+The team sign-in page's "Forgot your password?" shows the contact in `ANGLISS_CONTACT`
+(`src/lib/constants.js`). Fill it in and rebuild.
+
+**Getting a coordinator when there isn't one** (fresh install, an install from before
+coordinators existed, or the last one left without handing over):
+
+1. On an empty install, the first volunteer to sign up becomes an approved coordinator
+   automatically.
+2. From the server:
+   ```bash
+   ./scripts/make-coordinator.sh someone@example.com
+   ```
+   This promotes an existing account. If there's no account for that address, it creates one
+   and prints a generated password once (or pass `--password` and `--name`). Use this for a test
+   coordinator, then delete that account in Studio → Authentication.
+3. In Studio on the server itself (http://localhost:54323):
+   - Table Editor → `profiles` → that person → set `role` to `volunteer`, tick `approved` and
+     `is_coordinator` → Save.
+   - No account yet? Authentication → Add user → Create new user, tick *Auto Confirm User*,
+     then edit their `profiles` row as above.
+   - Or in the SQL Editor:
+     ```sql
+     update public.profiles set role = 'volunteer', approved = true, is_coordinator = true
+     where lower(email) = lower('someone@example.com');
+     ```
+
+There's deliberately no built-in account with a known password. The site is public, so a
+default login would let anyone in.
 
 ## Health checks
 

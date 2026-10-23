@@ -3,9 +3,97 @@ import { supabase } from '../../lib/supabaseClient'
 import { STATUS_META, SKILLS } from '../../lib/constants'
 import { formatShortDate } from '../../lib/dates'
 import { formatTicket, normaliseTicket } from '../../lib/tickets'
-import { EmptyState, FilterIcon, SearchIcon, ChipGroup, initialsOf, IconUsers } from '../../components/ui'
+import { EmptyState, FilterIcon, SearchIcon, ChipGroup, initialsOf, IconUsers, Field } from '../../components/ui'
 import RepairCard from '../../components/RepairCard'
 import RepairDetailModal from '../../components/RepairDetailModal'
+
+// Easy to read out over the phone: no 0/O, 1/l/i.
+const PW_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789'
+const newPassword = () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(12))
+  const chars = [...bytes].map((b) => PW_ALPHABET[b % PW_ALPHABET.length])
+  return [0, 4, 8].map((i) => chars.slice(i, i + 4).join('')).join('-')
+}
+
+// Coordinator-only controls on a repairer's card: set a new password, and make
+// or remove a coordinator. The server checks all of this again.
+function CoordinatorControls({ volunteer, isSelf, onTeamChanged }) {
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState('')
+  const [error, setError] = useState('')
+  const [done, setDone] = useState('')
+
+  const openPanel = () => {
+    setPassword(newPassword())
+    setError('')
+    setDone('')
+    setOpen(true)
+  }
+
+  const savePassword = async () => {
+    if (password.length < 8) return setError('The password needs at least 8 characters.')
+    setBusy('pw')
+    setError('')
+    const { data, error: err } = await supabase.functions.invoke('admin-set-password', {
+      body: { user_id: volunteer.id, password },
+    })
+    setBusy('')
+    if (err || data?.error) {
+      let message = data?.error
+      try { message = message ?? (await err.context.json()).error } catch { /* not JSON */ }
+      return setError(message ?? 'The password could not be changed. Please try again.')
+    }
+    setDone(`Tell ${volunteer.full_name || 'them'} their new password: ${password}. They can sign in with it now, and change it under My bench.`)
+    setOpen(false)
+  }
+
+  const toggleCoordinator = async () => {
+    const make = !volunteer.is_coordinator
+    const who = isSelf ? 'yourself' : volunteer.full_name
+    const ok = window.confirm(make
+      ? `Make ${who} a coordinator? Coordinators can set passwords for the team and choose other coordinators.`
+      : `Remove ${who} as a coordinator?`)
+    if (!ok) return
+    setBusy('coord')
+    setError('')
+    const { error: err } = await supabase.rpc('set_coordinator', { target_id: volunteer.id, make_coordinator: make })
+    setBusy('')
+    if (err) setError(err.message)
+    else await onTeamChanged?.()
+  }
+
+  return (
+    <div className="coord-actions">
+      {!isSelf && (
+        <button className="btn btn-secondary btn-sm" disabled={!!busy} onClick={open ? () => setOpen(false) : openPanel}>
+          {open ? 'Cancel' : 'Set new password'}
+        </button>
+      )}
+      <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={toggleCoordinator}>
+        {busy === 'coord' ? 'Saving…' : volunteer.is_coordinator ? 'Remove coordinator' : 'Make coordinator'}
+      </button>
+
+      {open && (
+        <div className="pw-panel">
+          <Field label={`New password for ${volunteer.full_name}`} hint="Shown in full so you can read it out. At least 8 characters.">
+            <div className="pw-row">
+              <input className="input" value={password} autoComplete="off" spellCheck="false"
+                aria-label={`New password for ${volunteer.full_name}`}
+                onChange={(e) => setPassword(e.target.value)} />
+              <button className="btn btn-secondary btn-sm" type="button" onClick={() => setPassword(newPassword())}>New suggestion</button>
+              <button className="btn btn-primary btn-sm" type="button" disabled={!!busy} onClick={savePassword}>
+                {busy === 'pw' ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </Field>
+        </div>
+      )}
+      {error && <div className="form-error" style={{ flexBasis: '100%', marginBottom: 0 }}>{error}</div>}
+      {done && <div className="form-ok" style={{ flexBasis: '100%', marginBottom: 0 }}>{done}</div>}
+    </div>
+  )
+}
 
 // Tab 1 — browse every repair in the database, look up a returning visitor, or
 // search the repairer roster.
@@ -250,7 +338,10 @@ export default function BrowseTab({
                 <div key={v.id} className="card repairer-card">
                   <div className="avatar">{initialsOf(v.full_name)}</div>
                   <div className="r-main">
-                    <div className="r-name">{v.full_name}{v.id === profile.id ? ' (you)' : ''}</div>
+                    <div className="r-name">
+                      {v.full_name}{v.id === profile.id ? ' (you)' : ''}
+                      {v.is_coordinator && <span className="coord-tag">Coordinator</span>}
+                    </div>
                     <div className="r-sub">
                       {[v.suburb, v.email].filter(Boolean).join(' · ')}
                       {' · '}{activeCount(v.id)} active · {doneCount(v.id)} completed · joined {formatShortDate(v.created_at)}
@@ -261,6 +352,9 @@ export default function BrowseTab({
                     {(v.skills?.length ?? 0) > 4 && <span className="skill-tag more">+{v.skills.length - 4}</span>}
                     {!v.skills?.length && <span className="skill-tag more">No specialisations listed</span>}
                   </div>
+                  {profile.is_coordinator && (
+                    <CoordinatorControls volunteer={v} isSelf={v.id === profile.id} onTeamChanged={onTeamChanged} />
+                  )}
                 </div>
               ))}
             </div>

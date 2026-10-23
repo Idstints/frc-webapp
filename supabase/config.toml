@@ -61,3 +61,8 @@ enabled = true                # repair_messages is in the supabase_realtime publ
 # Visitors are signed out when they enter a ticket, so this endpoint must be
 # reachable without a JWT. It does its own rate limiting via ticket_attempts.
 verify_jwt = false
+
+[functions.admin-set-password]
+# Only a signed-in coordinator may call this; the function checks the role
+# itself as well, so a volunteer's or visitor's JWT gets a 403.
+verify_jwt = true

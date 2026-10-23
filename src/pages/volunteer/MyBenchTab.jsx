@@ -1,10 +1,53 @@
 import { useMemo, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
+import { supabase } from '../../lib/supabaseClient'
 import { SKILLS } from '../../lib/constants'
 import { formatShortDate } from '../../lib/dates'
 import { EmptyState, ChipGroup, initialsOf, IconWrench } from '../../components/ui'
 import RepairCard from '../../components/RepairCard'
 import RepairDetailModal from '../../components/RepairDetailModal'
+
+// For someone a coordinator gave a temporary password, or anyone who wants a new one.
+function ChangePassword() {
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [done, setDone] = useState(false)
+
+  const save = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    const { error: err } = await supabase.auth.updateUser({ password })
+    setBusy(false)
+    if (err) return setError(err.message)
+    setPassword('')
+    setOpen(false)
+    setDone(true)
+  }
+
+  if (!open) {
+    return (
+      <div style={{ marginTop: 10 }}>
+        <button className="btn btn-ghost btn-sm" onClick={() => { setOpen(true); setDone(false) }}>Change my password</button>
+        {done && <span style={{ fontSize: 12.5, color: 'var(--green-700)', marginLeft: 8 }}>Password changed.</span>}
+      </div>
+    )
+  }
+  return (
+    <form onSubmit={save} style={{ marginTop: 10, maxWidth: 360 }}>
+      {error && <div className="form-error">{error}</div>}
+      <input className="input" type="password" required minLength={8} value={password} autoComplete="new-password"
+        placeholder="New password (at least 8 characters)" aria-label="New password"
+        onChange={(e) => setPassword(e.target.value)} />
+      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <button className="btn btn-primary btn-sm" disabled={busy}>{busy ? 'Saving…' : 'Save password'}</button>
+        <button className="btn btn-ghost btn-sm" type="button" onClick={() => { setOpen(false); setPassword(''); setError('') }}>Cancel</button>
+      </div>
+    </form>
+  )
+}
 
 // Tab 2 — the volunteer's own details and the repairs on their bench.
 export default function MyBenchTab({ repairs, volunteers, profile, onRepairUpdated }) {
@@ -62,6 +105,7 @@ export default function MyBenchTab({ repairs, volunteers, profile, onRepairUpdat
               </div>
             )}
           </div>
+          <ChangePassword />
         </div>
         <div className="vol-stats">
           <div className="vol-stat"><div className="n">{active.length}</div><div className="l">In progress</div></div>

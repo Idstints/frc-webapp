@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import PublicShell from '../components/PublicShell'
-import { Field } from '../components/ui'
+import { Field, IconWrench } from '../components/ui'
 import { formatTicket, isTicket, normaliseTicket } from '../lib/tickets'
 
-// Two ways in: the ticket number from the card we gave them, or straight into
-// a booking if this is their first visit. Reached from a printed QR code as
+// Two ways in: straight into a booking if this is their first visit, or the
+// ticket number from the card we gave them. Reached from a printed QR code as
 // /t/482137-KM, which fills the number in for them.
 export default function TicketEntryPage() {
   const { code: codeFromLink } = useParams()
@@ -47,11 +47,18 @@ export default function TicketEntryPage() {
   return (
     <PublicShell>
       <Link to="/" style={{ fontSize: 13, textDecoration: 'none', fontWeight: 600 }}>← Back</Link>
-      <h2 style={{ fontSize: 20, margin: '12px 0 4px' }}>Get something repaired</h2>
-      <p style={{ color: 'var(--ink-2)', fontSize: 13.5, marginBottom: 20 }}>
-        If you have been to the cafe before, we gave you a ticket number. Enter it below to see
-        your repairs.
-      </p>
+      <h2 style={{ fontSize: 20, margin: '12px 0 16px' }}>Get something repaired</h2>
+
+      <div className="first-visit">
+        <div className="fv-head">
+          <span className="fv-icon"><IconWrench /></span>
+          <h3>First time with us?</h3>
+        </div>
+        <p>Book your item in and we will give you a ticket number at the end.</p>
+        <Link to="/book" className="btn btn-lg btn-block fv-btn">Book a repair</Link>
+      </div>
+
+      <h3 style={{ fontSize: 15.5, margin: '28px 0 12px' }}>Already have a ticket number?</h3>
 
       {error && <div className="form-error">{error}</div>}
 
@@ -70,23 +77,10 @@ export default function TicketEntryPage() {
             aria-label="Your ticket number"
           />
         </Field>
-        <button className="btn btn-primary btn-lg btn-block" disabled={busy}>
+        <button className="btn btn-secondary btn-lg btn-block" disabled={busy}>
           {busy ? 'Opening your repairs…' : 'Show my repairs'}
         </button>
       </form>
-
-      <div className="divider">or</div>
-
-      <div className="card card-pad" style={{ textAlign: 'center' }}>
-        <h3 style={{ fontSize: 15.5, marginBottom: 6 }}>First time with us?</h3>
-        <p style={{ color: 'var(--ink-2)', fontSize: 13, lineHeight: 1.55, marginBottom: 14 }}>
-          Book your item in and we will give you a ticket number at the end. There is nothing to
-          sign up for and no password to remember.
-        </p>
-        <Link to="/book" className="btn btn-secondary btn-lg btn-block">
-          Book a repair
-        </Link>
-      </div>
 
       <p style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 18, textAlign: 'center', lineHeight: 1.55 }}>
         Lost your ticket number? Ask us at the next session, or call Angliss Neighbourhood House and

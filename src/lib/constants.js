@@ -7,7 +7,12 @@ export const ANGLISS_WEBSITE = 'https://anglissnh.net.au/'
 // past it by clicking the cross on the red box and typing the code; each device
 // remembers it after that. To open the site to everyone, set enabled to false
 // and rebuild. Changing the code locks every device out again.
-export const DEV_BLOCKER = { enabled: true, code: 'lrc-server' }
+export const DEV_BLOCKER = {
+  enabled: true,
+  code: 'lrc-server',
+  // Where the public is sent meanwhile: the cafe's page on the Angliss site.
+  link: 'https://anglissnh.net.au/footscrayrepaircafe/',
+}
 
 // Fill these in: shown on the team sign-in page when a volunteer forgets their
 // password. Blank fields are left out; if all three are blank the page just

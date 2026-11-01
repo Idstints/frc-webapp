@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ANGLISS_WEBSITE, DEV_BLOCKER } from '../lib/constants'
+import { DEV_BLOCKER } from '../lib/constants'
 import { IconX } from './ui'
 
 // Holding screen while the site is still being built. Nothing behind it loads
@@ -75,9 +75,9 @@ export default function DevBlocker({ children }) {
         </button>
 
         <h1 id="devblock-title">This site is currently under development</h1>
-        <p>Please go to the Angliss Neighbourhood House website.</p>
-        <a className="devblock-go" href={ANGLISS_WEBSITE}>
-          Angliss Neighbourhood House
+        <p>Please go to the Footscray Repair Cafe website.</p>
+        <a className="devblock-go" href={DEV_BLOCKER.link}>
+          Footscray Repair Cafe
         </a>
 
         {asking && (

@@ -42,9 +42,11 @@ if frc_have node && frc_have npm; then
     Run ./scripts/install-prereqs.sh to install Node 24."
 
   say "Building with local Node $(node -v)"
-  # Always run it: it takes a second when nothing changed, and it repairs a
-  # node_modules folder that was installed for a different system.
-  npm install --no-audit --no-fund
+  # npm ci, not npm install: it installs exactly what package-lock.json says
+  # and never rewrites that file. npm install edits the lock file differently
+  # on each system, and that local edit would make the next git pull refuse
+  # to run. It also replaces a node_modules folder from another system.
+  npm ci --no-audit --no-fund
   npm run build
 elif [ "$OS" = linux ]; then
   die "Node isn't installed. The server builds with Node on the machine, not in Docker.

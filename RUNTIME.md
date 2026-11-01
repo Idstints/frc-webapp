@@ -159,10 +159,17 @@ own apt repository rather than Mint's `docker.io` package, which is older and sh
 plugin — and it resolves the repo codename from `UBUNTU_CODENAME`, because Mint's own
 `VERSION_CODENAME` ("wilma", "xia") means nothing to Docker's servers.
 
-Node and Caddy are **not** required on the host. Caddy runs as a container, and
-`scripts/build.sh` falls back to a `node:24-alpine` container when Node isn't installed.
-If Node *is* present it is used instead, because a bind-mounted `npm install` is slow on
-macOS.
+Caddy is **not** required on the host; it runs as a container. **Node 24 is required on
+Linux**, and `install-prereqs.sh` installs it from NodeSource (Mint's own package is too old).
+On the Mint server, build containers (`node:24-alpine`) started and exited without running
+anything, and the old `dist/` made the build look successful. So on Linux `scripts/build.sh`
+only builds with local Node and stops if it's missing. Windows and macOS test machines still
+fall back to the container.
+
+`scripts/build.sh` also guards against a silent no-op: it fails unless `dist/index.html` is
+newer than the moment the build started, and refuses to run if `node_modules/` or `dist/` are
+owned by root (left by a container build). After a good build it recreates the `web`
+container if it's running, so the new files are served without a separate restart.
 
 Apple Silicon and Intel both work; all images are multi-arch.
 

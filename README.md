@@ -44,13 +44,14 @@ lid on and walk away with — while it's off, the website is down.
 
 ### What gets installed
 
-Only two things, and the installer handles both:
+Three things on the Linux server, and the installer handles all of them:
 
 - **Docker** — runs everything in containers
 - **Supabase CLI** — sets up the database and keeps it in step with the code
+- **Node 24** — compiles the website (`./scripts/build.sh`)
 
-You do **not** need Node, Caddy, Postgres or a web server. Those either run in containers or
-aren't needed.
+You do **not** need Caddy, Postgres or a web server. Those run in containers. On Windows or
+macOS test machines Node is optional: without it the build runs in a container instead.
 
 ### Decide these first
 
@@ -367,6 +368,8 @@ Write the SQL in the file it creates, then `supabase migration up`.
 | `permission denied` on the Docker socket | You're not in the `docker` group, or you haven't logged out and back in since being added |
 | Site loads, sign-in fails | The two addresses disagree — re-run `./scripts/set-public-url.sh` |
 | Changed `.env`, nothing happened | It's compiled in. Run `./scripts/build.sh` |
+| Pulled new code, rebuilt, site unchanged | Check the build ended with "Build done". It now stops with an error if no new files were made |
+| Build says a folder "belongs to another user" | Left over from an old container build — `sudo rm -rf node_modules dist`, then build again |
 | `redirect_uri_mismatch` on Google | The public address isn't in the Google OAuth client's redirect list |
 | Works locally, not from outside | The tunnel isn't running — `sudo tailscale funnel --bg 8080` |
 | Refreshing a page gives 404 | Caddy isn't serving `index.html` for unknown paths |

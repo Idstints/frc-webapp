@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Install the two things this project needs: Docker and the Supabase CLI.
+# Install what this project needs: Docker and the Supabase CLI everywhere,
+# plus Node 24 on Linux (the server builds the website with it).
 #
 #   ./scripts/install-prereqs.sh
 #
 # Supports Linux Mint / Ubuntu / Debian and macOS. Nothing else is required —
-# not Node, not Caddy, not Postgres. Skips anything already present.
+# not Caddy, not Postgres. Skips anything already present.
 #
 # This installs system software and will ask for your password.
 
@@ -95,6 +96,23 @@ install_linux() {
     sudo install -m 0755 "$TMP/supabase" /usr/local/bin/supabase
     rm -rf "$TMP"
     info "Installed $(supabase --version 2>/dev/null || echo '') to /usr/local/bin/supabase"
+  fi
+
+  # ---- Node ----
+  # scripts/build.sh compiles the website with Node on the machine. Building
+  # in a container is not used on Linux: on the Mint server those containers
+  # exited without running anything. Mint's own nodejs package is too old,
+  # so this uses NodeSource's repository.
+  NODE_MAJOR=0
+  frc_have node && NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
+  if [ "$NODE_MAJOR" -ge 20 ]; then
+    info "Node already installed ($(node -v))"
+  else
+    say "Installing Node 24"
+    confirm "Add NodeSource's apt repository and install Node 24?" || die "Stopped. Docker and Supabase are done; Node was not installed."
+    curl -fsSL https://deb.nodesource.com/setup_24.x | sudo bash -
+    sudo apt-get install -y -qq nodejs
+    info "Installed Node $(node -v)"
   fi
 }
 

@@ -832,3 +832,88 @@ svg.ic { width: 17px; height: 17px; flex: none; }
   background: var(--amber-wash); color: var(--amber-deep);
   font-size: 11.5px; font-weight: 600; vertical-align: middle;
 }
+
+/* ============ "under development" blocker ============ */
+.devblock {
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 28px;
+  padding: 32px 16px;
+  background: var(--bg);
+}
+.devblock-logo { height: 64px; width: auto; display: block; }
+.devblock-card {
+  position: relative;
+  width: 100%; max-width: 560px;
+  padding: 48px 40px 40px;
+  background: #b3261e;
+  color: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+}
+.devblock-card h1 {
+  color: #fff;
+  font-size: 28px;
+  line-height: 1.2;
+  margin-bottom: 14px;
+}
+.devblock-card p { font-size: 16px; color: rgba(255, 255, 255, 0.92); }
+.devblock-go {
+  display: inline-block;
+  margin-top: 26px;
+  padding: 13px 24px;
+  background: #fff;
+  color: #8c1d17;
+  font-weight: 650;
+  font-size: 15px;
+  border-radius: 9px;
+  text-decoration: none;
+}
+.devblock-go:hover { background: #fbeeed; }
+.devblock-go:focus-visible, .devblock-close:focus-visible, .devblock-enter:focus-visible {
+  outline: 3px solid #fff; outline-offset: 2px;
+}
+.devblock-close {
+  position: absolute; top: 10px; right: 10px;
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  background: transparent;
+  border: 0; border-radius: 8px;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+}
+.devblock-close:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.devblock-close .ic { width: 20px; height: 20px; }
+.devblock-form { margin-top: 22px; }
+.devblock-row {
+  display: flex; align-items: center;
+  width: 190px; margin: 0 auto;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+}
+.devblock-row:focus-within { border-color: rgba(255, 255, 255, 0.6); }
+.devblock-row input {
+  flex: 1; min-width: 0;
+  padding: 6px 4px 6px 14px;
+  background: transparent; border: 0; outline: none;
+  color: #fff; font: inherit; font-size: 13px;
+}
+.devblock-row input::placeholder { color: rgba(255, 255, 255, 0.55); }
+.devblock-enter {
+  width: 30px; height: 30px; margin-right: 1px;
+  display: grid; place-items: center; flex: none;
+  background: transparent; color: rgba(255, 255, 255, 0.8);
+  border: 0; border-radius: 999px;
+  cursor: pointer;
+}
+.devblock-enter:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.devblock-enter svg { width: 15px; height: 15px; }
+.devblock-error { margin-top: 6px; font-size: 12px; color: rgba(255, 255, 255, 0.85); }
+
+@media (max-width: 520px) {
+  .devblock-card { padding: 44px 22px 28px; }
+  .devblock-card h1 { font-size: 23px; }
+  .devblock-logo { height: 52px; }
+}

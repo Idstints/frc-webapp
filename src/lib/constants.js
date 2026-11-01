@@ -3,6 +3,12 @@ export const DEFAULT_CAFE_ID = 'a0000000-0000-4000-8000-000000000001'
 
 export const ANGLISS_WEBSITE = 'https://anglissnh.net.au/'
 
+// "Under development" screen shown in front of the whole site. The team gets
+// past it by clicking the cross on the red box and typing the code; each device
+// remembers it after that. To open the site to everyone, set enabled to false
+// and rebuild. Changing the code locks every device out again.
+export const DEV_BLOCKER = { enabled: true, code: 'lrc-server' }
+
 // Fill these in: shown on the team sign-in page when a volunteer forgets their
 // password. Blank fields are left out; if all three are blank the page just
 // says to contact Angliss Neighbourhood House and links to the website.
